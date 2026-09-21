@@ -1,0 +1,172 @@
+import {
+  $Enums,
+  Prisma,
+  PrismaClient,
+  type User,
+} from '../../generated/prisma/client.js';
+
+const userSafeSelect = {
+  id: true,
+  email: true,
+  name: true,
+  phone: true,
+  cardNumber: true,
+  unit: true,
+  role: true,
+  active: true,
+  mustChangePassword: true,
+  companyId: true,
+  restaurantId: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
+export type UserWithoutPassword = Prisma.UserGetPayload<{
+  select: typeof userSafeSelect;
+}>;
+
+const userWithCompanySelect = {
+  ...userSafeSelect,
+  company: {
+    select: {
+      id: true,
+      name: true,
+      code: true,
+      active: true,
+    },
+  },
+  restaurant: {
+    select: {
+      id: true,
+      name: true,
+      active: true,
+    },
+  },
+} as const;
+
+export type UserWithRelations = Prisma.UserGetPayload<{
+  select: typeof userWithCompanySelect;
+}>;
+
+export class UserPrismaRepository {
+  constructor(private prisma: PrismaClient | Prisma.TransactionClient) {}
+
+  async findById(id: string): Promise<UserWithoutPassword | null> {
+    return this.prisma.user.findUnique({
+      where: { id },
+      select: userSafeSelect,
+    });
+  }
+
+  async findByIdWithRelations(id: string): Promise<UserWithRelations | null> {
+    return this.prisma.user.findUnique({
+      where: { id },
+      select: userWithCompanySelect,
+    });
+  }
+
+  async findByEmail(email: string): Promise<UserWithoutPassword | null> {
+    return this.prisma.user.findUnique({
+      where: { email },
+      select: userSafeSelect,
+    });
+  }
+
+  async findByEmailForAuth(email: string): Promise<User | null> {
+    return this.prisma.user.findUnique({
+      where: { email },
+    });
+  }
+
+  async findByUnitAndCardNumberForAuth(
+    cardNumber: string,
+    unit: $Enums.Unit,
+  ): Promise<User | null> {
+    return this.prisma.user.findUnique({
+      where: {
+        cardNumber_unit: {
+          cardNumber,
+          unit,
+        },
+      },
+    });
+  }
+
+  async findAll(): Promise<UserWithRelations[]> {
+    return this.prisma.user.findMany({
+      orderBy: { name: 'asc' },
+      select: userWithCompanySelect,
+    });
+  }
+
+  async create(data: {
+    email: string;
+    name: string;
+    passwordHash: string;
+    role: $Enums.UserRole;
+    active?: boolean;
+    mustChangePassword?: boolean;
+    companyId?: string | null;
+    restaurantId?: string | null;
+    phone?: string | null;
+    cardNumber?: string | null;
+    unit?: $Enums.Unit | null;
+  }): Promise<UserWithoutPassword> {
+    return this.prisma.user.create({
+      data: {
+        email: data.email,
+        name: data.name,
+        passwordHash: data.passwordHash,
+        role: data.role,
+        active: data.active ?? true,
+        mustChangePassword: data.mustChangePassword ?? true,
+        companyId: data.companyId ?? null,
+        restaurantId: data.restaurantId ?? null,
+        phone: data.phone ?? null,
+        cardNumber: data.cardNumber ?? null,
+        unit: data.unit ?? null,
+      },
+      select: userSafeSelect,
+    });
+  }
+
+  async update(
+    userId: string,
+    data: {
+      name?: string;
+      phone?: string | null;
+      role?: $Enums.UserRole;
+      active?: boolean;
+      companyId?: string | null;
+      restaurantId?: string | null;
+    },
+  ): Promise<UserWithoutPassword> {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data,
+      select: userSafeSelect,
+    });
+  }
+
+  async updatePassword(
+    userId: string,
+    passwordHash: string,
+  ): Promise<UserWithoutPassword> {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash, mustChangePassword: false },
+      select: userSafeSelect,
+    });
+  }
+
+  async resetPassword(
+    userId: string,
+    passwordHash: string,
+  ): Promise<UserWithoutPassword> {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash, mustChangePassword: true },
+      select: userSafeSelect,
+    });
+  }
+}

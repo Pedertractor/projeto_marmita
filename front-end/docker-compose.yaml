@@ -1,0 +1,16 @@
+name: marmita
+services:
+  frontend-marmita:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: solicitacao-marmita-frontend
+    ports:
+      - '5028:80'
+    networks:
+      - marmita-network
+
+networks:
+  marmita-network:
+    external: true
+    name: marmita-network

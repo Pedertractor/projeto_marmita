@@ -1,0 +1,272 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  RH
+  RESTAURANT
+  REQUESTER
+}
+
+enum OrderStatus {
+  DRAFT
+  SUBMITTED
+  ACCEPTED
+  READY
+}
+
+enum OrderFulfillmentType {
+  PICKUP
+  DELIVERY
+}
+
+enum Unit {
+  PEDERTRACTOR
+  TRACTOR
+}
+
+enum CompanyKind {
+  PEDERTRACTOR
+  TRACTOR
+  OTHER
+}
+
+enum RegistrationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Company {
+  id        String   @id @default(uuid())
+  name      String
+  code      String?  @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users                User[]
+  orders               Order[]
+  mealPrices           MealPrice[]
+  registrationRequests RegistrationRequest[]
+
+  @@index([active])
+}
+
+model Restaurant {
+  id        String   @id @default(uuid())
+  name      String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users  User[]
+  menus  Menu[]
+  orders Order[]
+
+  @@index([active])
+}
+
+model User {
+  id                 String   @id @default(uuid())
+  email              String   @unique
+  passwordHash       String
+  name               String
+  phone              String?
+  cardNumber         String?
+  unit               Unit?
+  role               UserRole
+  active             Boolean  @default(true)
+  mustChangePassword Boolean  @default(true)
+  companyId          String?
+  restaurantId       String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  company                 Company?              @relation(fields: [companyId], references: [id])
+  restaurant              Restaurant?           @relation(fields: [restaurantId], references: [id])
+  mealPrices              MealPrice[]
+  orders                  Order[]               @relation("OrderRequester")
+  statusChanges           OrderStatusHistory[]
+  auditLogs               AuditLog[]
+  reviewedRegistrations   RegistrationRequest[] @relation("RegistrationReviewer")
+
+  @@unique([cardNumber, unit])
+  @@index([role])
+  @@index([email])
+  @@index([companyId])
+  @@index([restaurantId])
+}
+
+model Menu {
+  id           String   @id @default(uuid())
+  restaurantId String
+  date         DateTime @db.Date
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
+  items      MenuItem[]
+  orders     Order[]
+
+  @@unique([restaurantId, date])
+  @@index([date])
+  @@index([restaurantId])
+}
+
+model MenuItem {
+  id          String  @id @default(uuid())
+  menuId      String
+  name        String
+  description String?
+  iconKey     String?
+  available   Boolean @default(true)
+  sortOrder   Int     @default(0)
+
+  menu           Menu            @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  orderMealItems OrderMealItem[]
+
+  @@index([menuId])
+}
+
+model MealPrice {
+  id            String   @id @default(uuid())
+  companyId     String
+  amount        Decimal  @db.Decimal(10, 2)
+  effectiveFrom DateTime
+  createdById   String
+  createdAt     DateTime @default(now())
+
+  company   Company @relation(fields: [companyId], references: [id])
+  createdBy User    @relation(fields: [createdById], references: [id])
+
+  @@index([companyId, effectiveFrom])
+  @@index([effectiveFrom])
+}
+
+model RegistrationRequest {
+  id                 String             @id @default(uuid())
+  name               String
+  email              String
+  phone              String
+  passwordHash       String
+  companyKind        CompanyKind
+  companyName        String
+  companyId          String?
+  cardNumber         String?
+  unit               Unit?
+  employeeExternalId String?
+  status             RegistrationStatus @default(PENDING)
+  reviewedById       String?
+  reviewedAt         DateTime?
+  reviewNote         String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  company    Company? @relation(fields: [companyId], references: [id])
+  reviewedBy User?    @relation("RegistrationReviewer", fields: [reviewedById], references: [id])
+
+  @@index([status])
+  @@index([email])
+  @@index([createdAt])
+}
+
+model Order {
+  id              String                @id @default(uuid())
+  orderCode       String                @unique
+  requesterId     String
+  companyId       String
+  requesterName   String
+  companyName     String
+  restaurantId    String
+  menuId          String
+  menuDate        DateTime              @db.Date
+  status          OrderStatus           @default(DRAFT)
+  fulfillmentType OrderFulfillmentType?
+  quantity        Int
+  unitPrice       Decimal               @db.Decimal(10, 2)
+  totalPrice      Decimal               @db.Decimal(10, 2)
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  requester     User                 @relation("OrderRequester", fields: [requesterId], references: [id])
+  company       Company              @relation(fields: [companyId], references: [id])
+  restaurant    Restaurant           @relation(fields: [restaurantId], references: [id])
+  menu          Menu                 @relation(fields: [menuId], references: [id])
+  meals         OrderMeal[]
+  statusHistory OrderStatusHistory[]
+
+  @@index([requesterId])
+  @@index([companyId])
+  @@index([restaurantId])
+  @@index([menuId])
+  @@index([status])
+  @@index([menuDate])
+  @@index([createdAt])
+  @@index([requesterId, menuDate, status])
+}
+
+model OrderMeal {
+  id            String  @id @default(uuid())
+  orderId       String
+  recipientName String
+  notes         String?
+  sortOrder     Int     @default(0)
+
+  order Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  items OrderMealItem[]
+
+  @@index([orderId])
+}
+
+model OrderMealItem {
+  id          String  @id @default(uuid())
+  orderMealId String
+  menuItemId  String?
+  itemName    String
+
+  orderMeal OrderMeal @relation(fields: [orderMealId], references: [id], onDelete: Cascade)
+  menuItem  MenuItem? @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
+
+  @@index([orderMealId])
+  @@index([menuItemId])
+}
+
+model OrderStatusHistory {
+  id          String       @id @default(uuid())
+  orderId     String
+  fromStatus  OrderStatus?
+  toStatus    OrderStatus
+  changedById String
+  createdAt   DateTime     @default(now())
+
+  order     Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  changedBy User  @relation(fields: [changedById], references: [id])
+
+  @@index([orderId])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  action     String
+  entityType String
+  entityId   String
+  before     Json?
+  after      Json?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@index([userId])
+}
