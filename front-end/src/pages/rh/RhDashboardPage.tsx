@@ -86,7 +86,6 @@ export function RhDashboardPage() {
   });
 
   const periodLabel = formatPeriodLabel(fromDate, toDate);
-  const showMenuDateInList = fromDate !== toDate;
 
   return (
     <div className='space-y-6'>
@@ -190,11 +189,7 @@ export function RhDashboardPage() {
                 <div className='min-w-0'>
                   <p className='truncate font-medium'>{order.companyName}</p>
                   <p className='truncate text-xs text-muted-foreground'>
-                    {order.quantity} marmitas · {order.requesterName}
-                    {showMenuDateInList ? (
-                      <> · cardápio {formatDate(order.menuDate)}</>
-                    ) : null}
-                    {' · '}
+                    {order.quantity} marmitas · {order.requesterName} ·{' '}
                     {formatDateTime(order.createdAt)}
                   </p>
                 </div>

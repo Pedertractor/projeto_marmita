@@ -54,8 +54,6 @@ type ItemDraft = {
 
   name: string;
 
-  description: string;
-
   iconKey: MenuItemIconKey;
 
   available: boolean;
@@ -68,7 +66,6 @@ function emptyItem(): ItemDraft {
 
   return {
     name: '',
-    description: '',
     iconKey: DEFAULT_MENU_ITEM_ICON_KEY,
     available: true,
   };
@@ -125,8 +122,6 @@ export function MenuEditPage() {
 
           name: i.name,
 
-          description: i.description ?? '',
-
           iconKey: normalizeMenuItemIconKey(i.iconKey),
 
           available: i.available,
@@ -157,7 +152,7 @@ export function MenuEditPage() {
 
           name: i.name.trim(),
 
-          description: i.description.trim() || null,
+          description: null,
 
           iconKey: i.iconKey,
 
@@ -285,13 +280,11 @@ export function MenuEditPage() {
 
           <div className='-mx-1 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-1 py-1 pb-4'>
 
-            <div className='sticky top-0 z-10 hidden gap-3 bg-card px-1 pb-2 text-xs font-medium text-muted-foreground md:grid md:grid-cols-[auto_minmax(0,1fr)_minmax(0,1.2fr)_2.5rem_2.5rem] md:items-center'>
+            <div className='hidden gap-3 px-1 pb-2 text-xs font-medium text-muted-foreground md:grid md:grid-cols-[auto_minmax(0,1fr)_2.5rem_2.5rem] md:items-center'>
 
               <span>Ícone</span>
 
               <span>Nome do item</span>
-
-              <span>Descrição</span>
 
               <span className='sr-only'>Disponível</span>
 
@@ -307,7 +300,7 @@ export function MenuEditPage() {
 
                 key={index}
 
-                className='grid gap-3 rounded-2xl border border-border/60 bg-card/80 p-3 shadow-sm sm:grid-cols-[auto_minmax(0,1fr)_auto_auto] sm:items-center md:grid-cols-[auto_minmax(0,1fr)_minmax(0,1.2fr)_2.5rem_2.5rem] md:items-center md:py-1 md:rounded-none md:border-0 md:bg-transparent md:p-0 md:shadow-none'
+                className='grid gap-3 rounded-2xl border border-border/60 bg-card/80 p-3 shadow-sm sm:grid-cols-[auto_minmax(0,1fr)_auto_auto] sm:items-center md:grid-cols-[auto_minmax(0,1fr)_2.5rem_2.5rem] md:items-center md:py-1 md:rounded-none md:border-0 md:bg-transparent md:p-0 md:shadow-none'
 
               >
 
@@ -367,45 +360,7 @@ export function MenuEditPage() {
 
 
 
-                <div className='min-w-0 md:col-start-3'>
-
-                  <Label htmlFor={`desc-${index}`} className='mb-1 block text-xs text-muted-foreground md:sr-only'>
-
-                    Descrição
-
-                  </Label>
-
-                  <Input
-
-                    id={`desc-${index}`}
-
-                    value={item.description}
-
-                    placeholder='Ex.: arroz branco soltinho'
-
-                    className='w-full min-w-0 text-sm'
-
-                    onChange={(e) =>
-
-                      setItems((prev) =>
-
-                        prev.map((it, i) =>
-
-                          i === index ? { ...it, description: e.target.value } : it,
-
-                        ),
-
-                      )
-
-                    }
-
-                  />
-
-                </div>
-
-
-
-                <div className='flex items-center justify-center md:col-start-4'>
+                <div className='flex items-center justify-center md:col-start-3'>
 
                   <Label htmlFor={`avail-${index}`} className='sr-only'>
 
@@ -451,7 +406,7 @@ export function MenuEditPage() {
 
                   size='icon-sm'
 
-                  className='justify-self-center md:col-start-5'
+                  className='justify-self-center md:col-start-4'
 
                   onClick={() =>
 
