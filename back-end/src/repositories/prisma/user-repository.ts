@@ -169,4 +169,31 @@ export class UserPrismaRepository {
       select: userSafeSelect,
     });
   }
+
+  async countBlockingRelations(userId: string): Promise<{
+    orders: number;
+    statusChanges: number;
+    mealPrices: number;
+  }> {
+    const [orders, statusChanges, mealPrices] = await Promise.all([
+      this.prisma.order.count({ where: { requesterId: userId } }),
+      this.prisma.orderStatusHistory.count({
+        where: { changedById: userId },
+      }),
+      this.prisma.mealPrice.count({ where: { createdById: userId } }),
+    ]);
+    return { orders, statusChanges, mealPrices };
+  }
+
+  async deleteById(userId: string): Promise<void> {
+    await this.prisma.auditLog.updateMany({
+      where: { userId },
+      data: { userId: null },
+    });
+    await this.prisma.registrationRequest.updateMany({
+      where: { reviewedById: userId },
+      data: { reviewedById: null },
+    });
+    await this.prisma.user.delete({ where: { id: userId } });
+  }
 }

@@ -158,7 +158,7 @@ export function OrdersListPage() {
               value={status}
               onValueChange={(v) => patchFilters({ status: v, page: 1 })}
             >
-              <SelectTrigger id='orders-status' className='h-10 w-36'>
+              <SelectTrigger id='orders-status' className='h-10 w-40'>
                 <SelectValue placeholder='Status' />
               </SelectTrigger>
               <SelectContent>

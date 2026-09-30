@@ -19,6 +19,15 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
+    rules: {
+      // shadcn/ui e helpers exportam variants/funções junto ao componente (allowConstantExport não cobre cva/re-exports)
+      'react-refresh/only-export-components': 'off',
+      // Regras do React Compiler em flat.recommended — padrões comuns do projeto
+      'react-hooks/set-state-in-effect': 'off',
+      'react-hooks/refs': 'off',
+      'react-hooks/purity': 'off',
+      'react-hooks/preserve-manual-memoization': 'off',
+    },
   },
   {
     files: ['src/**/*.{ts,tsx}'],

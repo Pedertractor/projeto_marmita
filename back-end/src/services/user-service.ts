@@ -299,7 +299,11 @@ export class UserService {
     return serializeUser(updated);
   }
 
-  async resetPassword(actingAdminId: string, targetUserId: string) {
+  async resetPassword(
+    actingAdminId: string,
+    actingAdminRole: $Enums.UserRole,
+    targetUserId: string,
+  ) {
     if (actingAdminId === targetUserId) {
       throw new HttpError(
         'Não é permitido redefinir a própria senha por esta ação',
@@ -313,7 +317,17 @@ export class UserService {
       throw new HttpError('Usuário não encontrado', 404);
     }
 
-    const temporaryPassword = '123456';
+    if (
+      actingAdminRole === $Enums.UserRole.RH &&
+      target.role === $Enums.UserRole.SUPER_ADMIN
+    ) {
+      throw new HttpError(
+        'RH não pode redefinir a senha de um SUPER_ADMIN',
+        403,
+      );
+    }
+
+    const temporaryPassword = '123';
     const passwordHash = await bcrypt.hash(temporaryPassword, 10);
     const updated = await userRepository.resetPassword(
       targetUserId,
@@ -324,5 +338,48 @@ export class UserService {
       user: serializeUser(updated),
       temporaryPassword,
     };
+  }
+
+  async deleteByAdmin(
+    actingAdminId: string,
+    actingAdminRole: $Enums.UserRole,
+    targetUserId: string,
+  ) {
+    if (actingAdminId === targetUserId) {
+      throw new HttpError(
+        'Não é permitido apagar a própria conta por esta ação',
+        400,
+      );
+    }
+
+    const userRepository = new UserPrismaRepository(prisma);
+    const target = await userRepository.findById(targetUserId);
+    if (!target) {
+      throw new HttpError('Usuário não encontrado', 404);
+    }
+
+    if (
+      actingAdminRole === $Enums.UserRole.RH &&
+      target.role === $Enums.UserRole.SUPER_ADMIN
+    ) {
+      throw new HttpError('RH não pode apagar um SUPER_ADMIN', 403);
+    }
+
+    const related = await userRepository.countBlockingRelations(targetUserId);
+    if (related.orders > 0) {
+      throw new HttpError(
+        'Não é possível apagar: o usuário possui apontamentos. Desative a conta em vez disso.',
+        409,
+      );
+    }
+    if (related.statusChanges > 0 || related.mealPrices > 0) {
+      throw new HttpError(
+        'Não é possível apagar: o usuário possui registros vinculados. Desative a conta em vez disso.',
+        409,
+      );
+    }
+
+    await userRepository.deleteById(targetUserId);
+    return { ok: true as const };
   }
 }

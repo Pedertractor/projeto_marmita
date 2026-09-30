@@ -175,7 +175,7 @@ export class OrderService {
       quantity: number;
       fulfillmentType: $Enums.OrderFulfillmentType;
       meals: OrderMealInput[];
-      orderCode?: string;
+      orderCode?: string | undefined;
     },
   ) {
     const userRepo = new UserPrismaRepository(prisma);
@@ -229,7 +229,9 @@ export class OrderService {
         fulfillmentType: input.fulfillmentType,
         meals,
         changedById: user.id,
-        orderCode: input.orderCode,
+        ...(input.orderCode !== undefined
+          ? { orderCode: input.orderCode }
+          : {}),
       });
     } catch (error) {
       if (
@@ -289,6 +291,21 @@ export class OrderService {
         'Pedido só pode ser editado enquanto estiver em rascunho ou submetido',
         400,
       );
+    }
+
+    if (existing.status === $Enums.OrderStatus.SUBMITTED) {
+      const submittedAt =
+        [...(existing.statusHistory ?? [])]
+          .reverse()
+          .find((entry) => entry.toStatus === $Enums.OrderStatus.SUBMITTED)
+          ?.createdAt ?? existing.createdAt;
+      const elapsedMs = Date.now() - new Date(submittedAt).getTime();
+      if (elapsedMs > 5 * 60 * 1000) {
+        throw new HttpError(
+          'O prazo de 5 minutos para editar o pedido expirou',
+          400,
+        );
+      }
     }
 
     const isDraft = existing.status === $Enums.OrderStatus.DRAFT;

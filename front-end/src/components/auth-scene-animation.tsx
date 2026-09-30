@@ -1,12 +1,9 @@
 import {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useRef,
   useState,
   type ReactNode,
-  type RefObject,
 } from 'react';
 import {
   animate,
@@ -23,31 +20,16 @@ const RESTAURANT = '/restaurante.png';
 const LOMBADA = '/lombada.png';
 
 const DURATION_S = 16;
-const DESKTOP_MQ = '(min-width: 1024px)';
 
 /** Horizontal path (vw): rider crosses in front of the restaurant on the left. */
 const RIDER_X_FROM = '105vw';
 const RIDER_X_TO = '-28vw';
 
-/** Lombada near the bottom-left of the login/register card. */
-const LOMBADA_LEFT = 'calc(14.5vw + min(17.6vw, 207px))';
+/** Lombada near the bottom-left corner of the centered auth card (max-w-sm). */
+const LOMBADA_LEFT = 'calc(50% - 12rem)';
 
-type AuthSceneAnimationContextValue = {
-  footerRef: RefObject<HTMLParagraphElement | null>;
-  footerReveal: number;
-  reduceMotion: boolean | null;
-};
-
-const AuthSceneAnimationContext =
-  createContext<AuthSceneAnimationContextValue | null>(null);
-
-function isDesktopScene() {
-  return typeof window !== 'undefined' && window.matchMedia(DESKTOP_MQ).matches;
-}
-
-/** Scooter faces left: front wheel on the leading (left) edge, rear on the right. */
+/** Scooter faces left: front wheel on the leading (left) edge. */
 const FRONT_WHEEL_X_RATIO = 0.14;
-const REAR_WHEEL_X_RATIO = 0.88;
 
 function riderSpriteForLombadaCrossing(
   rider: DOMRect,
@@ -63,21 +45,6 @@ function riderSpriteForLombadaCrossing(
   return frontWheelOnLombada ? RIDER_CHAOS : RIDER_ORGANIZED;
 }
 
-function computeFooterReveal(
-  footer: DOMRect,
-  rider: DOMRect,
-  progress: number,
-): number {
-  if (progress < 0.015) return 0;
-
-  const wheelX = rider.left + rider.width * REAR_WHEEL_X_RATIO;
-
-  if (wheelX >= footer.right) return 0;
-  if (wheelX <= footer.left) return 1;
-
-  return (footer.right - wheelX) / footer.width;
-}
-
 export function AuthSceneAnimationProvider({
   children,
 }: {
@@ -88,35 +55,7 @@ export function AuthSceneAnimationProvider({
   const x = useTransform(progress, [0, 1], [RIDER_X_FROM, RIDER_X_TO]);
   const riderRef = useRef<HTMLDivElement>(null);
   const lombadaRef = useRef<HTMLImageElement>(null);
-  const footerRef = useRef<HTMLParagraphElement>(null);
-  const [footerReveal, setFooterReveal] = useState(0);
   const [riderSrc, setRiderSrc] = useState(RIDER_ORGANIZED);
-
-  const updateFooterReveal = useCallback(() => {
-    if (reduceMotion) {
-      setFooterReveal(1);
-      return;
-    }
-
-    if (!isDesktopScene()) {
-      setFooterReveal(1);
-      return;
-    }
-
-    const footerEl = footerRef.current;
-    const riderEl = riderRef.current;
-    if (!footerEl || !riderEl) {
-      setFooterReveal(0);
-      return;
-    }
-
-    const reveal = computeFooterReveal(
-      footerEl.getBoundingClientRect(),
-      riderEl.getBoundingClientRect(),
-      progress.get(),
-    );
-    setFooterReveal(reveal);
-  }, [progress, reduceMotion]);
 
   const updateRiderSprite = useCallback(() => {
     if (reduceMotion) return;
@@ -135,14 +74,12 @@ export function AuthSceneAnimationProvider({
 
   useMotionValueEvent(progress, 'change', () => {
     updateRiderSprite();
-    updateFooterReveal();
   });
 
   useEffect(() => {
     if (reduceMotion) {
       progress.set(0);
       setRiderSrc(RIDER_ORGANIZED);
-      setFooterReveal(1);
       return;
     }
 
@@ -158,19 +95,14 @@ export function AuthSceneAnimationProvider({
 
   useEffect(() => {
     updateRiderSprite();
-    updateFooterReveal();
     window.addEventListener('resize', updateRiderSprite);
-    window.addEventListener('resize', updateFooterReveal);
     return () => {
       window.removeEventListener('resize', updateRiderSprite);
-      window.removeEventListener('resize', updateFooterReveal);
     };
-  }, [updateFooterReveal, updateRiderSprite]);
+  }, [updateRiderSprite]);
 
   return (
-    <AuthSceneAnimationContext.Provider
-      value={{ footerRef, footerReveal, reduceMotion }}
-    >
+    <>
       <div
         className='pointer-events-none fixed inset-0 z-0 hidden overflow-hidden lg:block'
         aria-hidden
@@ -178,7 +110,7 @@ export function AuthSceneAnimationProvider({
         <img
           src={RESTAURANT}
           alt=''
-          className='absolute bottom-0 -left-[min(22vw,240px)] w-[min(48vw,560px)] origin-bottom-left select-none object-contain object-left-bottom opacity-90'
+          className='absolute bottom-0 -left-[min(22vw,240px)] w-[min(48vw,560px)] origin-bottom-left select-none object-contain object-bottom-left opacity-90'
           draggable={false}
         />
 
@@ -200,23 +132,13 @@ export function AuthSceneAnimationProvider({
             <img
               src={riderSrc}
               alt=''
-              className='size-full select-none object-contain object-left-bottom drop-shadow-sm'
+              className='size-full select-none object-contain object-bottom-left drop-shadow-sm'
               draggable={false}
             />
           </motion.div>
         ) : null}
       </div>
       {children}
-    </AuthSceneAnimationContext.Provider>
+    </>
   );
-}
-
-export function useAuthSceneAnimation() {
-  const ctx = useContext(AuthSceneAnimationContext);
-  if (!ctx) {
-    throw new Error(
-      'useAuthSceneAnimation must be used within AuthSceneAnimationProvider',
-    );
-  }
-  return ctx;
 }

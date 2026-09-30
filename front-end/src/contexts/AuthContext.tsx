@@ -14,7 +14,7 @@ import {
 import { AuthContext } from '@/contexts/auth-context';
 import type { AuthUser, LoginCredentials } from '@/types/auth';
 
-// eslint-disable-next-line react-refresh/only-export-components -- utilitário compartilhado
+ 
 export { clearAuthStorage } from '@/utils/auth-storage';
 
 export function AuthProvider({ children }: { children: ReactNode }) {

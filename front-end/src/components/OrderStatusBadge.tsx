@@ -1,4 +1,4 @@
-import { FilePenLine, ShoppingBag, Ticket, TicketCheck, type LucideIcon } from 'lucide-react';
+import { ChefHat, FilePenLine, ListOrdered, ShoppingBag, type LucideIcon } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 
@@ -28,9 +28,9 @@ export const ORDER_STATUS_ICON: Record<OrderStatus, LucideIcon> = {
 
   DRAFT: FilePenLine,
 
-  SUBMITTED: Ticket,
+  SUBMITTED: ListOrdered,
 
-  ACCEPTED: TicketCheck,
+  ACCEPTED: ChefHat,
 
   READY: ShoppingBag,
 
@@ -64,7 +64,7 @@ export function OrderStatusBadge({
 
         'justify-center gap-1 rounded-full border-0 font-medium',
 
-        compact ? 'w-[5.75rem] px-1.5 py-0 text-[0.6875rem]' : 'w-[6.75rem] px-2.5 py-0.5',
+        compact ? 'w-[6.75rem] px-1.5 py-0 text-[0.6875rem]' : 'w-[7.75rem] px-2.5 py-0.5',
 
         ORDER_STATUS_VARIANT[status],
 

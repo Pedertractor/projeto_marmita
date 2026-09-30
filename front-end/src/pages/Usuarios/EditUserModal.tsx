@@ -81,7 +81,8 @@ function EditUserFormBody({
   const canResetPassword =
     authUser?.role != null &&
     canResetUserPassword(authUser.role) &&
-    authUser.id !== detail.id;
+    authUser.id !== detail.id &&
+    !(isRhLimited && detail.role === 'SUPER_ADMIN');
 
   const roleOptions = useMemo(() => {
     const base = canAssignSuper
@@ -243,8 +244,8 @@ function EditUserFormBody({
           <AlertDialogHeader>
             <AlertDialogTitle>Resetar senha?</AlertDialogTitle>
             <AlertDialogDescription>
-              Uma senha temporária será gerada e o usuário precisará trocá-la no
-              próximo login.
+              A senha será redefinida para <strong>123</strong>. No próximo
+              login, o usuário precisará definir uma nova senha.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

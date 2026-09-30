@@ -84,6 +84,13 @@ export const userApi = {
     return data;
   },
 
+  async deleteByAdmin(userId: string): Promise<{ ok: boolean }> {
+    const { data } = await api.delete<{ ok: boolean }>(
+      `${BASE}/${encodeURIComponent(userId)}`,
+    );
+    return data;
+  },
+
   async changePasswordFirstLogin(
     newPassword: string,
   ): Promise<{ user: AuthUser }> {

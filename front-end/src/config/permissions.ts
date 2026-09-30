@@ -21,7 +21,12 @@ export function canAccessRegistrationRequests(role: UserRole): boolean {
 }
 
 export function canResetUserPassword(role: UserRole): boolean {
-  return role === 'SUPER_ADMIN';
+  return role === 'SUPER_ADMIN' || role === 'RH';
+}
+
+/** Desativar/reativar ou apagar usuário — RH e SUPER_ADMIN. */
+export function canManageUserLifecycle(role: UserRole): boolean {
+  return role === 'SUPER_ADMIN' || role === 'RH';
 }
 
 export function canAccessCompanies(role: UserRole): boolean {

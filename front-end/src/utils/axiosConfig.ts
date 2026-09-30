@@ -5,23 +5,11 @@ import axios, {
 } from 'axios';
 import { toast } from 'sonner';
 import { clearAuthStorage, getStoredToken } from '@/utils/auth-storage';
-
-function resolveApiBaseUrl(): string {
-  const raw = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:5027';
-  if (
-    typeof window !== 'undefined' &&
-    window.location.protocol === 'https:' &&
-    raw.startsWith('http:')
-  ) {
-    return `https:${raw.slice('http:'.length)}`;
-  }
-  return raw;
-}
-
-const api_url = resolveApiBaseUrl();
+import { resolveApiBaseUrl } from '@/utils/resolve-api-url';
 
 const instance = axios.create({
-  baseURL: `${api_url}/api`,
+  baseURL: resolveApiBaseUrl(),
+  timeout: 15_000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -77,6 +65,8 @@ function applyErrorInterceptor(api: AxiosInstance) {
         } else {
           message = resolveApiErrorMessage(status, apiMessage);
         }
+      } else if (error.code === 'ECONNABORTED') {
+        message = 'A requisição demorou demais. Tente novamente.';
       } else {
         message = 'Erro ao conectar com o servidor, tente novamente.';
       }

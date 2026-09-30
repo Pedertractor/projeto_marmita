@@ -4,17 +4,17 @@ import type { OrderFulfillmentType, OrderStatus } from '@/types/domain';
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   DRAFT: 'Rascunho',
-  SUBMITTED: 'Solicitado',
-  ACCEPTED: 'Aceito',
-  READY: 'Pronto',
+  SUBMITTED: 'Na fila',
+  ACCEPTED: 'Em preparo',
+  READY: 'Pronta',
 };
 
 /** Texto do botão de transição (ação), distinto do rótulo de estado. */
 export const ORDER_STATUS_ACTION_LABELS: Record<OrderStatus, string> = {
   DRAFT: 'Salvar rascunho',
   SUBMITTED: 'Solicitar',
-  ACCEPTED: 'Aceitar',
-  READY: 'Marcar pronto',
+  ACCEPTED: 'Iniciar preparo',
+  READY: 'Marcar pronta',
 };
 
 export const ORDER_FULFILLMENT_LABELS: Record<OrderFulfillmentType, string> = {

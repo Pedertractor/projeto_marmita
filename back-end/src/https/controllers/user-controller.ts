@@ -140,6 +140,26 @@ export async function updateUserByAdmin(
   const userService = new UserService();
   const target = await userService.getById(userId);
 
+  if (body.active === false && request.user.sub === userId) {
+    throw new HttpError(
+      'Não é permitido desativar a própria conta por esta ação',
+      400,
+    );
+  }
+
+  if (
+    !isSuperAdmin &&
+    target.role === $Enums.UserRole.SUPER_ADMIN &&
+    (body.active !== undefined ||
+      body.name !== undefined ||
+      body.phone !== undefined)
+  ) {
+    throw new HttpError(
+      'RH não pode alterar um SUPER_ADMIN',
+      403,
+    );
+  }
+
   if (body.role !== undefined) {
     if (!isSuperAdmin && body.role === $Enums.UserRole.SUPER_ADMIN) {
       throw new HttpError(
@@ -192,6 +212,27 @@ export async function resetUserPassword(
   });
   const { userId } = paramsSchema.parse(request.params);
   const userService = new UserService();
-  const result = await userService.resetPassword(request.user.sub, userId);
+  const result = await userService.resetPassword(
+    request.user.sub,
+    request.user.role,
+    userId,
+  );
+  return reply.status(200).send(result);
+}
+
+export async function deleteUserByAdmin(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  const paramsSchema = z.object({
+    userId: z.string().uuid('ID de usuário inválido'),
+  });
+  const { userId } = paramsSchema.parse(request.params);
+  const userService = new UserService();
+  const result = await userService.deleteByAdmin(
+    request.user.sub,
+    request.user.role,
+    userId,
+  );
   return reply.status(200).send(result);
 }

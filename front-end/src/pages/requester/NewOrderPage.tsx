@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'motion/react';
 import { toast } from 'sonner';
 import {
+  ArrowDown,
   ArrowLeft,
   ArrowRight,
   Check,
@@ -12,6 +13,7 @@ import {
   ShoppingBag,
   Truck,
 } from 'lucide-react';
+import { SidebarTrigger } from '@/components/ui/sidebar';
 import { MealBagsProgress } from '@/components/MealBagsProgress';
 import { MealCheckOverlay } from '@/components/MealCheckOverlay';
 import { MealPlate } from '@/components/MealPlate';
@@ -24,6 +26,7 @@ import { ordersApi } from '@/services/orders';
 import { ROUTES, requesterOrderPath } from '@/routes/constants';
 import { todayISODate } from '@/utils/format';
 import { generateOrderCode } from '@/utils/order-code';
+import { canEditSubmittedOrder } from '@/utils/order-status';
 import type { OrderFulfillmentType } from '@/types/domain';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -79,6 +82,7 @@ export function NewOrderPage({ editMode = false }: { editMode?: boolean }) {
   const [showMealCheck, setShowMealCheck] = useState(false);
   const [showOrderSuccess, setShowOrderSuccess] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
+  const [showScrollHint, setShowScrollHint] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const mealCheckTimersRef = useRef<number[]>([]);
 
@@ -102,6 +106,12 @@ export function NewOrderPage({ editMode = false }: { editMode?: boolean }) {
 
     if (editMode && existing.status !== 'SUBMITTED') {
       toast.error('Só é possível editar pedidos enviados.');
+      navigate(requesterOrderPath(existing.id), { replace: true });
+      return;
+    }
+
+    if (editMode && !canEditSubmittedOrder(existing)) {
+      toast.error('O prazo de 5 minutos para editar o pedido expirou.');
       navigate(requesterOrderPath(existing.id), { replace: true });
       return;
     }
@@ -332,7 +342,6 @@ export function NewOrderPage({ editMode = false }: { editMode?: boolean }) {
       return;
     }
     setStep(2);
-    scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   function back() {
@@ -380,6 +389,15 @@ export function NewOrderPage({ editMode = false }: { editMode?: boolean }) {
       mealCheckTimersRef.current = [];
     };
   }, []);
+
+  useEffect(() => {
+    if (step !== 2) {
+      setShowScrollHint(false);
+      return;
+    }
+    setShowScrollHint(true);
+    scrollContainerRef.current?.scrollTo({ top: 0 });
+  }, [step, mealIndex]);
 
   async function advanceAfterMealCheck(confirmedIndex: number) {
     setShowMealCheck(false);
@@ -440,7 +458,7 @@ export function NewOrderPage({ editMode = false }: { editMode?: boolean }) {
 
   if (!hydrated || (!isLocalNew && orderLoading)) {
     return (
-      <div className='-mx-4 -mb-4 flex min-h-0 flex-1 flex-col bg-white px-4 pb-4'>
+      <div className='-mx-4 -mb-4 flex h-dvh min-h-0 flex-col overflow-hidden bg-white px-4 pb-4'>
         <p className='flex flex-1 items-center justify-center text-sm text-muted-foreground'>
           Carregando pedido…
         </p>
@@ -449,174 +467,135 @@ export function NewOrderPage({ editMode = false }: { editMode?: boolean }) {
   }
 
   return (
-    <div className='-mx-4 -mb-4 flex min-h-0 flex-1 flex-col gap-4 bg-white px-4 pb-4'>
-      <div className='flex shrink-0 items-center gap-2'>
-        <Button asChild variant='ghost' size='icon-sm'>
-          <Link
-            to={
-              editMode && orderId
-                ? requesterOrderPath(orderId)
-                : ROUTES.REQUESTER_HOME
-            }
-          >
-            <ArrowLeft className='size-4' />
-          </Link>
-        </Button>
-        <div>
-          <h1 className='text-xl font-semibold tracking-tight'>
-            {orderCode ? `#${orderCode}` : 'Pedido'}
-          </h1>
-          <p className='text-xs text-muted-foreground'>
-            {editMode ? 'Editar · ' : ''}
-            Passo {step + 1} de {STEPS.length}: {STEPS[step]}
-            {step === 1
-              ? ` · Marmita ${recipientIndex + 1} de ${meals.length}`
-              : step === 2
-                ? ` · Marmita ${mealIndex + 1} de ${meals.length}`
-                : ''}
-          </p>
-        </div>
-      </div>
-
-      <div className='flex shrink-0 gap-1'>
-        {STEPS.map((label, i) => (
-          <div
-            key={label}
-            className={`h-1.5 flex-1 rounded-full ${
-              i <= step ? 'bg-primary' : 'bg-muted'
-            }`}
-          />
-        ))}
-      </div>
-
-      <MealBagsProgress
-        count={quantity}
-        currentIndex={
-          step === 1
-            ? recipientIndex
-            : step === 2 && !showMealCheck
-              ? mealIndex
-              : -1
-        }
-        completedCount={
-          step === 1
-            ? recipientIndex
-            : step === 2
-              ? showMealCheck
-                ? mealIndex + 1
-                : mealIndex
-              : step >= 3
-                ? quantity
-                : 0
-        }
-      />
-
+    <div className='relative -mx-4 -mb-4 flex h-dvh min-h-0 flex-col overflow-hidden bg-white px-4 pb-4'>
       <div
         ref={scrollContainerRef}
-        className='min-h-0 flex-1 overflow-y-auto'
+        className='flex min-h-0 flex-1 flex-col overflow-y-auto'
+        onScroll={(e) => {
+          if (e.currentTarget.scrollTop > 20) {
+            setShowScrollHint(false);
+          }
+        }}
       >
-        {step === 0 && (
-          <Card className='mx-auto w-full max-w-md'>
-            <CardHeader>
-              <CardTitle>Quantas marmitas?</CardTitle>
-              {menuLoading ? (
-                <CardDescription>Carregando cardápio…</CardDescription>
-              ) : !menu ? (
-                <CardDescription>Sem cardápio para hoje</CardDescription>
-              ) : null}
-            </CardHeader>
-            <CardContent className='space-y-3'>
-              <div className='flex max-w-xs items-center gap-2'>
-                <Button
-                  type='button'
-                  variant='outline'
-                  size='icon'
-                  className='size-10 shrink-0 rounded-xl'
-                  disabled={quantity <= 1}
-                  aria-label='Diminuir quantidade'
-                  onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                >
-                  <Minus className='size-4' />
-                </Button>
-                <Input
-                  id='qty'
-                  type='number'
-                  min={1}
-                  max={50}
-                  inputMode='numeric'
-                  aria-label='Quantidade de marmitas'
-                  value={quantity}
-                  className='h-10 flex-1 text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none'
-                  onChange={(e) => {
-                    const parsed = Number(e.target.value);
-                    if (!Number.isFinite(parsed)) return;
-                    setQuantity(Math.min(50, Math.max(1, parsed)));
-                  }}
-                />
-                <Button
-                  type='button'
-                  variant='outline'
-                  size='icon'
-                  className='size-10 shrink-0 rounded-xl'
-                  disabled={quantity >= 50}
-                  aria-label='Aumentar quantidade'
-                  onClick={() => setQuantity((q) => Math.min(50, q + 1))}
-                >
-                  <Plus className='size-4' />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {step === 1 && meals[recipientIndex] ? (
-          <Card className='mx-auto w-full max-w-sm'>
-            <AnimatePresence mode='wait'>
-              <motion.div
-                key={recipientIndex}
-                initial={{ opacity: 0, x: 28 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -28 }}
-                transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+        <div className='mx-auto w-full max-w-2xl shrink-0 space-y-4 pt-2'>
+          <div className='flex items-center gap-2'>
+            <SidebarTrigger className='-ml-1' />
+            <Button asChild variant='ghost' size='icon-sm'>
+              <Link
+                to={
+                  editMode && orderId
+                    ? requesterOrderPath(orderId)
+                    : ROUTES.REQUESTER_HOME
+                }
               >
-                <CardHeader className='pb-2'>
-                  <CardTitle className='text-base'>
-                    Marmita {recipientIndex + 1}
-                  </CardTitle>
-                  <CardDescription>Informe o nome completo</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Input
-                    id={`recipient-${recipientIndex}`}
-                    value={meals[recipientIndex].recipientName}
-                    autoComplete='name'
-                    aria-label='Nome completo'
-                    className='h-11'
-                    onChange={(e) =>
-                      setMeals((prev) =>
-                        prev.map((m, i) =>
-                          i === recipientIndex
-                            ? { ...m, recipientName: e.target.value }
-                            : m,
-                        ),
-                      )
-                    }
-                    placeholder='Nome completo'
-                  />
-                </CardContent>
-              </motion.div>
-            </AnimatePresence>
-          </Card>
-        ) : null}
+                <ArrowLeft className='size-4' />
+              </Link>
+            </Button>
+            <div>
+              <h1 className='text-xl font-semibold tracking-tight'>
+                {orderCode ? `#${orderCode}` : 'Pedido'}
+              </h1>
+              <p className='text-xs text-muted-foreground'>
+                {editMode ? 'Editar · ' : ''}
+                Passo {step + 1} de {STEPS.length}: {STEPS[step]}
+              </p>
+            </div>
+          </div>
 
-        {step === 2 && currentMeal ? (
-          <Card className='relative overflow-hidden'>
-            {showMealCheck ? (
-              <MealCheckOverlay recipientName={currentMeal.recipientName} />
-            ) : (
+          <div className='flex gap-1'>
+            {STEPS.map((label, i) => (
+              <div
+                key={label}
+                className={`h-1.5 flex-1 rounded-full ${
+                  i <= step ? 'bg-primary' : 'bg-muted'
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className='mx-auto mt-4 flex w-full max-w-2xl flex-1 flex-col gap-4'>
+          <MealBagsProgress
+            count={quantity}
+            currentIndex={
+              step === 1
+                ? recipientIndex
+                : step === 2 && !showMealCheck
+                  ? mealIndex
+                  : -1
+            }
+            completedCount={
+              step === 1
+                ? recipientIndex
+                : step === 2
+                  ? showMealCheck
+                    ? mealIndex + 1
+                    : mealIndex
+                  : step >= 3
+                    ? quantity
+                    : 0
+            }
+          />
+
+          {step === 0 && (
+            <Card className='mx-auto w-full max-w-md'>
+              <CardHeader>
+                <CardTitle>Quantas marmitas?</CardTitle>
+                {menuLoading ? (
+                  <CardDescription>Carregando cardápio…</CardDescription>
+                ) : !menu ? (
+                  <CardDescription>Sem cardápio para hoje</CardDescription>
+                ) : null}
+              </CardHeader>
+              <CardContent className='space-y-3'>
+                <div className='flex max-w-xs items-center gap-2'>
+                  <Button
+                    type='button'
+                    variant='outline'
+                    size='icon'
+                    className='size-10 shrink-0 rounded-xl'
+                    disabled={quantity <= 1}
+                    aria-label='Diminuir quantidade'
+                    onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                  >
+                    <Minus className='size-4' />
+                  </Button>
+                  <Input
+                    id='qty'
+                    type='number'
+                    min={1}
+                    max={50}
+                    inputMode='numeric'
+                    aria-label='Quantidade de marmitas'
+                    value={quantity}
+                    className='h-10 flex-1 text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none'
+                    onChange={(e) => {
+                      const parsed = Number(e.target.value);
+                      if (!Number.isFinite(parsed)) return;
+                      setQuantity(Math.min(50, Math.max(1, parsed)));
+                    }}
+                  />
+                  <Button
+                    type='button'
+                    variant='outline'
+                    size='icon'
+                    className='size-10 shrink-0 rounded-xl'
+                    disabled={quantity >= 50}
+                    aria-label='Aumentar quantidade'
+                    onClick={() => setQuantity((q) => Math.min(50, q + 1))}
+                  >
+                    <Plus className='size-4' />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {step === 1 && meals[recipientIndex] ? (
+            <Card className='mx-auto w-full max-w-sm'>
               <AnimatePresence mode='wait'>
                 <motion.div
-                  key={mealIndex}
+                  key={recipientIndex}
                   initial={{ opacity: 0, x: 28 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -28 }}
@@ -624,208 +603,269 @@ export function NewOrderPage({ editMode = false }: { editMode?: boolean }) {
                 >
                   <CardHeader className='pb-2'>
                     <CardTitle className='text-base'>
-                      {currentMeal.recipientName ||
-                        `Marmita ${mealIndex + 1}`}
+                      Marmita {recipientIndex + 1}
                     </CardTitle>
-                    <CardDescription className='md:hidden'>
-                      Arraste para o lado e toque nos itens para tirar ou
-                      colocar no prato.
-                    </CardDescription>
-                    <CardDescription className='hidden md:block'>
-                      Todos os itens começam no prato. Desmarque o que não
-                      quiser.
-                    </CardDescription>
+                    <CardDescription>Informe o nome completo</CardDescription>
                   </CardHeader>
-                  <CardContent className='space-y-5'>
-                    <MealPlate items={plateItems} />
-
-                    <MenuItemsCarousel
-                      items={availableItems}
-                      selectedIds={currentMeal.itemIds}
-                      onToggle={toggleItem}
+                  <CardContent>
+                    <Input
+                      id={`recipient-${recipientIndex}`}
+                      value={meals[recipientIndex].recipientName}
+                      autoComplete='name'
+                      aria-label='Nome completo'
+                      className='h-11'
+                      onChange={(e) =>
+                        setMeals((prev) =>
+                          prev.map((m, i) =>
+                            i === recipientIndex
+                              ? { ...m, recipientName: e.target.value }
+                              : m,
+                          ),
+                        )
+                      }
+                      placeholder='Nome completo'
                     />
-                    <MenuItemsGrid
-                      items={availableItems}
-                      selectedIds={currentMeal.itemIds}
-                      onToggle={toggleItem}
-                    />
-
-                    <div className='space-y-1.5'>
-                      <Label htmlFor={`notes-${mealIndex}`}>
-                        Observações
-                      </Label>
-                      <Textarea
-                        id={`notes-${mealIndex}`}
-                        value={currentMeal.notes}
-                        className='resize-none'
-                        onChange={(e) =>
-                          setMeals((prev) =>
-                            prev.map((m, i) =>
-                              i === mealIndex
-                                ? { ...m, notes: e.target.value }
-                                : m,
-                            ),
-                          )
-                        }
-                        placeholder='Ex.: sem cebola'
-                      />
-                    </div>
                   </CardContent>
                 </motion.div>
               </AnimatePresence>
-            )}
-          </Card>
-        ) : null}
+            </Card>
+          ) : null}
 
-        {step === 3 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Finalizar pedido</CardTitle>
-              <CardDescription>
-                Confira as {quantity} marmita{quantity > 1 ? 's' : ''} e escolha
-                como prefere receber
-              </CardDescription>
-            </CardHeader>
-            <CardContent className='space-y-5'>
-              {meals.map((meal, index) => (
-                <div key={index} className='rounded-2xl border p-3 text-sm'>
-                  <p className='mb-2 font-medium'>{meal.recipientName}</p>
-                  <ul className='flex flex-wrap gap-1.5'>
-                    {meal.itemIds.map((id) => {
-                      const item = availableItems.find((i) => i.id === id);
-                      return (
-                        <li
-                          key={id}
-                          className='inline-flex max-w-full flex-col gap-0.5 rounded-2xl bg-primary/10 px-2.5 py-1.5 text-xs font-medium text-primary'
-                        >
-                          <span className='inline-flex items-center gap-1'>
-                            <MenuItemIcon
-                              iconKey={item?.iconKey}
-                              size={12}
-                              className='text-primary'
-                            />
-                            {item?.name ?? id}
-                          </span>
-                          {item?.description?.trim() ? (
-                            <span className='text-[10px] font-normal leading-snug text-primary/80'>
-                              {item.description}
+          {step === 2 && currentMeal ? (
+            <Card className='relative overflow-hidden'>
+              {showMealCheck ? (
+                <MealCheckOverlay recipientName={currentMeal.recipientName} />
+              ) : (
+                <AnimatePresence mode='wait'>
+                  <motion.div
+                    key={mealIndex}
+                    initial={{ opacity: 0, x: 28 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -28 }}
+                    transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+                  >
+                    <CardHeader className='pb-2'>
+                      <CardTitle className='text-base'>
+                        {currentMeal.recipientName ||
+                          `Marmita ${mealIndex + 1}`}
+                      </CardTitle>
+                      <CardDescription className='md:hidden'>
+                        Arraste para o lado e toque nos itens para tirar ou
+                        colocar no prato.
+                      </CardDescription>
+                      <CardDescription className='hidden md:block'>
+                        Todos os itens começam no prato. Desmarque o que não
+                        quiser.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className='space-y-5'>
+                      <MealPlate items={plateItems} />
+
+                      <MenuItemsCarousel
+                        items={availableItems}
+                        selectedIds={currentMeal.itemIds}
+                        onToggle={toggleItem}
+                      />
+                      <MenuItemsGrid
+                        items={availableItems}
+                        selectedIds={currentMeal.itemIds}
+                        onToggle={toggleItem}
+                      />
+
+                      <div className='space-y-1.5'>
+                        <Label htmlFor={`notes-${mealIndex}`}>
+                          Observações
+                        </Label>
+                        <Textarea
+                          id={`notes-${mealIndex}`}
+                          value={currentMeal.notes}
+                          className='resize-none'
+                          onChange={(e) =>
+                            setMeals((prev) =>
+                              prev.map((m, i) =>
+                                i === mealIndex
+                                  ? { ...m, notes: e.target.value }
+                                  : m,
+                              ),
+                            )
+                          }
+                          placeholder='Ex.: sem cebola'
+                        />
+                      </div>
+                    </CardContent>
+                  </motion.div>
+                </AnimatePresence>
+              )}
+            </Card>
+          ) : null}
+
+          {step === 3 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Finalizar pedido</CardTitle>
+                <CardDescription>
+                  Confira as {quantity} marmita{quantity > 1 ? 's' : ''} e escolha
+                  como prefere receber
+                </CardDescription>
+              </CardHeader>
+              <CardContent className='space-y-5'>
+                {meals.map((meal, index) => (
+                  <div
+                    key={index}
+                    className='rounded-2xl border p-3 text-sm'
+                  >
+                    <p className='mb-2 font-medium'>{meal.recipientName}</p>
+                    <ul className='flex flex-wrap gap-1.5'>
+                      {meal.itemIds.map((id) => {
+                        const item = availableItems.find((i) => i.id === id);
+                        return (
+                          <li
+                            key={id}
+                            className='inline-flex max-w-full flex-col gap-0.5 rounded-2xl bg-primary/10 px-2.5 py-1.5 text-xs font-medium text-primary'
+                          >
+                            <span className='inline-flex items-center gap-1'>
+                              <MenuItemIcon
+                                iconKey={item?.iconKey}
+                                size={12}
+                                className='text-primary'
+                              />
+                              {item?.name ?? id}
                             </span>
-                          ) : null}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                  {meal.notes ? (
-                    <p className='mt-2 text-xs text-muted-foreground'>
-                      Obs.: {meal.notes}
-                    </p>
-                  ) : null}
-                </div>
-              ))}
+                            {item?.description?.trim() ? (
+                              <span className='text-[10px] font-normal leading-snug text-primary/80'>
+                                {item.description}
+                              </span>
+                            ) : null}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                    {meal.notes ? (
+                      <p className='mt-2 text-xs text-muted-foreground'>
+                        Obs.: {meal.notes}
+                      </p>
+                    ) : null}
+                  </div>
+                ))}
 
-              <div className='space-y-2'>
-                <p className='text-sm font-medium'>Como prefere receber?</p>
-                <div className='grid grid-cols-2 gap-2'>
-                  <button
-                    type='button'
-                    onClick={() => setFulfillmentType('PICKUP')}
-                    className={cn(
-                      'flex flex-col items-center gap-2 rounded-2xl border px-3 py-4 text-sm transition',
-                      fulfillmentType === 'PICKUP'
-                        ? 'border-primary bg-primary/10 text-foreground'
-                        : 'border-border/60 bg-muted/30 text-muted-foreground',
-                    )}
-                  >
-                    <ShoppingBag className='size-5' />
-                    <span className='font-medium'>Retirada</span>
-                  </button>
-                  <button
-                    type='button'
-                    onClick={() => setFulfillmentType('DELIVERY')}
-                    className={cn(
-                      'flex flex-col items-center gap-2 rounded-2xl border px-3 py-4 text-sm transition',
-                      fulfillmentType === 'DELIVERY'
-                        ? 'border-primary bg-primary/10 text-foreground'
-                        : 'border-border/60 bg-muted/30 text-muted-foreground',
-                    )}
-                  >
-                    <Truck className='size-5' />
-                    <span className='font-medium'>Entrega</span>
-                  </button>
+                <div className='space-y-2'>
+                  <p className='text-sm font-medium'>Como prefere receber?</p>
+                  <div className='grid grid-cols-2 gap-2'>
+                    <button
+                      type='button'
+                      onClick={() => setFulfillmentType('PICKUP')}
+                      className={cn(
+                        'flex flex-col items-center gap-2 rounded-2xl border px-3 py-4 text-sm transition',
+                        fulfillmentType === 'PICKUP'
+                          ? 'border-primary bg-primary/10 text-foreground'
+                          : 'border-border/60 bg-muted/30 text-muted-foreground',
+                      )}
+                    >
+                      <ShoppingBag className='size-5' />
+                      <span className='font-medium'>Retirada</span>
+                    </button>
+                    <button
+                      type='button'
+                      onClick={() => setFulfillmentType('DELIVERY')}
+                      className={cn(
+                        'flex flex-col items-center gap-2 rounded-2xl border px-3 py-4 text-sm transition',
+                        fulfillmentType === 'DELIVERY'
+                          ? 'border-primary bg-primary/10 text-foreground'
+                          : 'border-border/60 bg-muted/30 text-muted-foreground',
+                      )}
+                    >
+                      <Truck className='size-5' />
+                      <span className='font-medium'>Entrega</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+              </CardContent>
+            </Card>
+          )}
+
+          <div className='mt-auto flex gap-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]'>
+            {step > 0 ? (
+              <Button
+                variant='outline'
+                className='flex-1'
+                disabled={showMealCheck || showOrderSuccess || savingDraft}
+                onClick={back}
+              >
+                Voltar
+              </Button>
+            ) : null}
+            {step === 1 ? (
+              <Button
+                className='flex-1'
+                disabled={savingDraft}
+                onClick={() => void confirmCurrentRecipient()}
+              >
+                <span className='inline-flex items-center justify-center gap-2'>
+                  {recipientIndex < meals.length - 1 ? 'Próximo' : 'Continuar'}
+                  <ArrowRight className='size-4' />
+                </span>
+              </Button>
+            ) : step === 2 ? (
+              <Button
+                className='flex-1'
+                disabled={showMealCheck || showOrderSuccess || savingDraft}
+                onClick={confirmCurrentMeal}
+              >
+                <span className='inline-flex items-center justify-center gap-2'>
+                  {mealIndex < meals.length - 1 ? 'OK' : 'Concluir cardápio'}
+                  <Check className='size-4' />
+                </span>
+              </Button>
+            ) : step === 3 ? (
+              <Button
+                className='flex-1'
+                disabled={saveMutation.isPending || showOrderSuccess}
+                onClick={() => {
+                  if (!fulfillmentType) {
+                    toast.error('Escolha retirada ou entrega.');
+                    return;
+                  }
+                  saveMutation.mutate();
+                }}
+              >
+                <span className='inline-flex items-center justify-center gap-2'>
+                  <Check className='size-4' />
+                  {saveMutation.isPending
+                    ? 'Enviando…'
+                    : editMode
+                      ? 'Salvar alterações'
+                      : 'Finalizar pedido'}
+                </span>
+              </Button>
+            ) : step === 0 ? (
+              <Button
+                className='flex-1'
+                disabled={savingDraft}
+                onClick={() => void next()}
+              >
+                <span className='inline-flex items-center justify-center gap-2'>
+                  Continuar
+                  <ArrowRight className='size-4' />
+                </span>
+              </Button>
+            ) : null}
+          </div>
+        </div>
       </div>
 
-      <div className='mt-auto flex shrink-0 gap-2 pb-[max(0.25rem,env(safe-area-inset-bottom))]'>
-        {step > 0 ? (
-          <Button
-            variant='outline'
-            className='flex-1'
-            disabled={showMealCheck || showOrderSuccess || savingDraft}
-            onClick={back}
-          >
-            Voltar
-          </Button>
-        ) : null}
-        {step === 1 ? (
-          <Button
-            className='flex-1'
-            disabled={savingDraft}
-            onClick={() => void confirmCurrentRecipient()}
-          >
-            <span className='inline-flex items-center justify-center gap-2'>
-              {recipientIndex < meals.length - 1 ? 'Próximo' : 'Continuar'}
-              <ArrowRight className='size-4' />
+      {step === 2 && showScrollHint && !showMealCheck ? (
+        <div
+          className='pointer-events-none absolute right-6 bottom-6 z-20'
+          aria-hidden
+        >
+          <span className='relative flex size-11 items-center justify-center'>
+            <span className='absolute inline-flex size-full animate-ping rounded-full bg-primary/35' />
+            <span className='relative flex size-10 animate-bounce items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md'>
+              <ArrowDown className='size-5' strokeWidth={2.5} />
             </span>
-          </Button>
-        ) : step === 2 ? (
-          <Button
-            className='flex-1'
-            disabled={showMealCheck || showOrderSuccess || savingDraft}
-            onClick={confirmCurrentMeal}
-          >
-            <span className='inline-flex items-center justify-center gap-2'>
-              {mealIndex < meals.length - 1 ? 'OK' : 'Concluir cardápio'}
-              <Check className='size-4' />
-            </span>
-          </Button>
-        ) : step === 3 ? (
-          <Button
-            className='flex-1'
-            disabled={saveMutation.isPending || showOrderSuccess}
-            onClick={() => {
-              if (!fulfillmentType) {
-                toast.error('Escolha retirada ou entrega.');
-                return;
-              }
-              saveMutation.mutate();
-            }}
-          >
-            <span className='inline-flex items-center justify-center gap-2'>
-              <Check className='size-4' />
-              {saveMutation.isPending
-                ? 'Enviando…'
-                : editMode
-                  ? 'Salvar alterações'
-                  : 'Finalizar pedido'}
-            </span>
-          </Button>
-        ) : step === 0 ? (
-          <Button
-            className='flex-1'
-            disabled={savingDraft}
-            onClick={() => void next()}
-          >
-            <span className='inline-flex items-center justify-center gap-2'>
-              Continuar
-              <ArrowRight className='size-4' />
-            </span>
-          </Button>
-        ) : null}
-      </div>
+          </span>
+        </div>
+      ) : null}
 
       <AnimatePresence>
         {showOrderSuccess ? (

@@ -8,6 +8,7 @@ import {
   getUserById,
   updateUserByAdmin,
   resetUserPassword,
+  deleteUserByAdmin,
 } from '../controllers/user-controller.js';
 import { $Enums } from '../../generated/prisma/client.js';
 import { authMiddleware } from '../../middlewares/auth-middleware.js';
@@ -197,7 +198,10 @@ export async function userRoutes(app: FastifyInstance) {
     {
       preHandler: [
         authMiddleware,
-        roleMiddleware([$Enums.UserRole.SUPER_ADMIN]),
+        roleMiddleware([
+          $Enums.UserRole.SUPER_ADMIN,
+          $Enums.UserRole.RH,
+        ]),
       ],
       schema: {
         tags: ['users'],
@@ -213,5 +217,31 @@ export async function userRoutes(app: FastifyInstance) {
       },
     },
     resetUserPassword,
+  );
+
+  app.delete(
+    '/:userId',
+    {
+      preHandler: [
+        authMiddleware,
+        roleMiddleware([
+          $Enums.UserRole.SUPER_ADMIN,
+          $Enums.UserRole.RH,
+        ]),
+      ],
+      schema: {
+        tags: ['users'],
+        summary: 'Apagar usuário sem apontamentos',
+        security: [{ bearerAuth: [] }],
+        params: {
+          type: 'object',
+          required: ['userId'],
+          properties: {
+            userId: { type: 'string', format: 'uuid' },
+          },
+        },
+      },
+    },
+    deleteUserByAdmin,
   );
 }
