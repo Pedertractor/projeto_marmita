@@ -27,9 +27,9 @@ app.register(swagger, {
   openapi: {
     openapi: '3.0.0',
     info: {
-      title: 'Mesa API',
+      title: 'Marmita API',
       description:
-        'API do Mesa — autenticação, cardápio, pedidos e relatórios',
+        'API da Marmita — autenticação, cardápio, pedidos e relatórios',
       version: '1.0.0',
     },
     servers: [

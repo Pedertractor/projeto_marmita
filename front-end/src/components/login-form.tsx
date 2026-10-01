@@ -60,6 +60,9 @@ export function LoginForm({
   const [capsLockOn, setCapsLockOn] = useState(false);
   const isInternal = isInternalCompanyKind(companyKind);
   const mustChangePassword = Boolean(user?.mustChangePassword);
+  const canSubmitLogin = isInternal
+    ? cardNumber.trim().length > 0 && password.length > 0
+    : /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) && password.length > 0;
 
   function handleCompanySelect(value: CompanyKind) {
     if (!companyPickerOpen) {
@@ -371,7 +374,7 @@ export function LoginForm({
                   ) : null}
                 </Field>
                 <Field>
-                  <Button type='submit' disabled={isLoading}>
+                  <Button type='submit' disabled={isLoading || !canSubmitLogin}>
                     {isLoading ? 'Entrando...' : 'Entrar'}
                   </Button>
                 </Field>

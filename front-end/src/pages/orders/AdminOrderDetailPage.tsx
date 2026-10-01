@@ -17,7 +17,10 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { canUpdateOrderStatus } from '@/config/permissions';
+import {
+  canUpdateOrderStatus,
+  canViewOrderPricing,
+} from '@/config/permissions';
 import { useAuth } from '@/contexts/useAuth';
 import {
   ordersListPath,
@@ -91,6 +94,7 @@ export function AdminOrderDetailPage() {
   }
 
   const canUpdate = user?.role != null && canUpdateOrderStatus(user.role);
+  const showPricing = user?.role != null && canViewOrderPricing(user.role);
   const next = nextStatusOptions(order.status);
 
   const ordersListReturnTo =
@@ -147,12 +151,16 @@ export function AdminOrderDetailPage() {
           <p>
             Quantidade: <strong>{order.quantity}</strong>
           </p>
-          <p>
-            Unitário: <strong>{formatCurrency(order.unitPrice)}</strong>
-          </p>
-          <p>
-            Total: <strong>{formatCurrency(order.totalPrice)}</strong>
-          </p>
+          {showPricing ? (
+            <>
+              <p>
+                Unitário: <strong>{formatCurrency(order.unitPrice)}</strong>
+              </p>
+              <p>
+                Total: <strong>{formatCurrency(order.totalPrice)}</strong>
+              </p>
+            </>
+          ) : null}
         </CardContent>
       </Card>
 

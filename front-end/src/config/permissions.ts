@@ -64,6 +64,11 @@ export function canAccessMealPrices(role: UserRole): boolean {
   return role === 'RH' || role === 'SUPER_ADMIN';
 }
 
+/** Valores monetários de pedidos (unitário/total) — RH e SUPER_ADMIN. */
+export function canViewOrderPricing(role: UserRole): boolean {
+  return role === 'RH' || role === 'SUPER_ADMIN';
+}
+
 export function canAccessReports(role: UserRole): boolean {
   return role === 'RH' || role === 'SUPER_ADMIN';
 }

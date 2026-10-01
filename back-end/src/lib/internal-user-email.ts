@@ -6,9 +6,13 @@ export function syntheticEmailForCard(
   cardNumber: string,
 ): string {
   const digits = cardNumber.replace(/\D/g, '') || cardNumber.trim();
-  return `${unit.toLowerCase()}.${digits}@mesa.internal`;
+  return `${unit.toLowerCase()}.${digits}@marmita.internal`;
 }
 
 export function isSyntheticInternalEmail(email: string): boolean {
-  return email.toLowerCase().endsWith('@mesa.internal');
+  const normalized = email.toLowerCase();
+  return (
+    normalized.endsWith('@marmita.internal') ||
+    normalized.endsWith('@mesa.internal')
+  );
 }

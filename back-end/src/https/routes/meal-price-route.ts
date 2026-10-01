@@ -12,7 +12,14 @@ export async function mealPriceRoutes(app: FastifyInstance) {
   app.get(
     '/current',
     {
-      preHandler: [authMiddleware],
+      preHandler: [
+        authMiddleware,
+        roleMiddleware([
+          $Enums.UserRole.RH,
+          $Enums.UserRole.SUPER_ADMIN,
+          $Enums.UserRole.REQUESTER,
+        ]),
+      ],
       schema: {
         tags: ['meal-prices'],
         summary: 'Preço vigente da empresa',

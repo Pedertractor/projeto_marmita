@@ -92,8 +92,9 @@ export interface Order {
   status: OrderStatus;
   fulfillmentType?: OrderFulfillmentType | null;
   quantity: number;
-  unitPrice: string | number;
-  totalPrice: string | number;
+  /** Ausente para RESTAURANT — valores só para RH/SUPER_ADMIN. */
+  unitPrice?: string | number;
+  totalPrice?: string | number;
   meals: OrderMeal[];
   statusHistory?: OrderStatusHistory[];
   requester?: { id: string; name: string; email: string };

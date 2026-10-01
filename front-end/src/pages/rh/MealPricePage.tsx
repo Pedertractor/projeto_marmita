@@ -395,13 +395,47 @@ export function MealPricePage() {
 
               variant='compact'
 
-              className='overflow-hidden'
+              className='relative h-full overflow-hidden'
 
             >
 
-              <div className='bg-gradient-to-br from-primary/[0.09] via-primary/[0.03] to-transparent px-4 py-5 sm:px-5 sm:py-6'>
+              <div className='relative flex min-h-[11.5rem] flex-1 flex-col bg-gradient-to-br from-primary/[0.12] via-primary/[0.06] to-primary/[0.04] px-4 py-5 sm:min-h-[12.5rem] sm:px-5 sm:py-6'>
 
-                <div className='flex flex-wrap items-start justify-between gap-3'>
+                {current ? (
+
+                  <Badge
+
+                    variant='secondary'
+
+                    className='absolute top-4 right-4 z-20 border-primary/15 bg-primary/10 text-primary sm:top-5 sm:right-5'
+
+                  >
+
+                    Ativo
+
+                  </Badge>
+
+                ) : null}
+
+
+
+                <img
+
+                  src='/tigela_dinheiro.png'
+
+                  alt=''
+
+                  aria-hidden
+
+                  draggable={false}
+
+                  className='pointer-events-none absolute right-0 bottom-0 z-0 h-[92%] w-auto max-w-[48%] object-contain object-right-bottom select-none sm:max-w-[42%]'
+
+                />
+
+
+
+                <div className='relative z-10 min-w-0 w-[58%] pr-2'>
 
                   <div className='min-w-0 space-y-1'>
 
@@ -421,65 +455,49 @@ export function MealPricePage() {
 
                   </div>
 
-                  {current ? (
 
-                    <Badge
 
-                      variant='secondary'
+                  {currentLoading ? (
 
-                      className='border-primary/15 bg-primary/10 text-primary'
+                    <div className='mt-4 flex items-center gap-2 text-sm text-muted-foreground'>
 
-                    >
+                      <Loader2
 
-                      Ativo
+                        className='size-4 animate-spin text-primary'
 
-                    </Badge>
+                        aria-hidden
 
-                  ) : null}
+                      />
+
+                      Carregando preço…
+
+                    </div>
+
+                  ) : (
+
+                    <>
+
+                      <p className='mt-4 text-4xl font-semibold tabular-nums tracking-tight sm:text-5xl'>
+
+                        {current ? formatCurrency(current.amount) : '—'}
+
+                      </p>
+
+                      <p className='mt-2 text-xs text-muted-foreground'>
+
+                        {current
+
+                          ? `Vigente desde ${formatDateTime(current.effectiveFrom)}`
+
+                          : 'Nenhum preço cadastrado para esta empresa.'}
+
+                      </p>
+
+                    </>
+
+                  )}
 
                 </div>
-
-
-
-                {currentLoading ? (
-
-                  <div className='mt-4 flex items-center gap-2 text-sm text-muted-foreground'>
-
-                    <Loader2
-
-                      className='size-4 animate-spin text-primary'
-
-                      aria-hidden
-
-                    />
-
-                    Carregando preço…
-
-                  </div>
-
-                ) : (
-
-                  <>
-
-                    <p className='mt-4 text-4xl font-semibold tabular-nums tracking-tight sm:text-5xl'>
-
-                      {current ? formatCurrency(current.amount) : '—'}
-
-                    </p>
-
-                    <p className='mt-2 text-xs text-muted-foreground'>
-
-                      {current
-
-                        ? `Vigente desde ${formatDateTime(current.effectiveFrom)}`
-
-                        : 'Nenhum preço cadastrado para esta empresa.'}
-
-                    </p>
-
-                  </>
-
-                )}
 
               </div>
 
@@ -547,51 +565,55 @@ export function MealPricePage() {
 
                 <div className='space-y-3 py-3'>
 
-                  <div className='grid gap-1.5'>
+                  <div className='flex flex-col gap-3 sm:flex-row sm:items-end'>
 
-                    <Label htmlFor='effectiveFrom-date' className='text-sm'>
+                    <div className='grid min-w-0 flex-1 gap-1.5'>
 
-                      Data de vigência (opcional)
+                      <Label htmlFor='effectiveFrom-date' className='text-sm'>
 
-                    </Label>
+                        Data de vigência (opcional)
 
-                    <DatePicker
+                      </Label>
 
-                      id='effectiveFrom-date'
+                      <DatePicker
 
-                      placeholder='Selecione a data'
+                        id='effectiveFrom-date'
 
-                      value={effectiveDate}
+                        placeholder='Selecione a data'
 
-                      onChange={setEffectiveDate}
+                        value={effectiveDate}
 
-                    />
+                        onChange={setEffectiveDate}
 
-                  </div>
+                      />
 
-                  <div className='grid gap-1.5'>
+                    </div>
 
-                    <Label htmlFor='effectiveFrom-time' className='text-sm'>
+                    <div className='grid w-full gap-1.5 sm:w-auto'>
 
-                      Horário
+                      <Label htmlFor='effectiveFrom-time' className='text-sm'>
 
-                    </Label>
+                        Horário
 
-                    <Input
+                      </Label>
 
-                      id='effectiveFrom-time'
+                      <Input
 
-                      type='time'
+                        id='effectiveFrom-time'
 
-                      disabled={!effectiveDate}
+                        type='time'
 
-                      className='w-36'
+                        disabled={!effectiveDate}
 
-                      value={effectiveTime}
+                        className='w-full sm:w-36'
 
-                      onChange={(e) => setEffectiveTime(e.target.value)}
+                        value={effectiveTime}
 
-                    />
+                        onChange={(e) => setEffectiveTime(e.target.value)}
+
+                      />
+
+                    </div>
 
                   </div>
 

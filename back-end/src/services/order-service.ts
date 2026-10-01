@@ -24,6 +24,20 @@ function normalizeRecipient(name: string): string {
   return name.trim().toLowerCase();
 }
 
+/** Remove campos monetários da resposta para o papel restaurante. */
+function omitOrderPricing<T extends { unitPrice?: unknown; totalPrice?: unknown }>(
+  order: T,
+): Omit<T, 'unitPrice' | 'totalPrice'> {
+  const { unitPrice: _unit, totalPrice: _total, ...rest } = order;
+  return rest;
+}
+
+function omitOrdersPricing<T extends { unitPrice?: unknown; totalPrice?: unknown }>(
+  orders: T[],
+): Omit<T, 'unitPrice' | 'totalPrice'>[] {
+  return orders.map(omitOrderPricing);
+}
+
 export class OrderService {
   private async buildValidatedMeals(
     menuId: string,
@@ -472,6 +486,9 @@ export class OrderService {
       after: { status: toStatus },
     });
 
+    if (user.role === $Enums.UserRole.RESTAURANT) {
+      return omitOrderPricing(updated);
+    }
     return updated;
   }
 
@@ -520,7 +537,7 @@ export class OrderService {
         return [];
       }
       if (!base.status) base.excludeDraft = true;
-      return orderRepo.findMany(base);
+      return omitOrdersPricing(await orderRepo.findMany(base));
     }
 
     if (base.status === $Enums.OrderStatus.DRAFT) {
@@ -566,6 +583,9 @@ export class OrderService {
       throw new HttpError('Sem permissão para ver este pedido', 403);
     }
 
+    if (user.role === $Enums.UserRole.RESTAURANT) {
+      return omitOrderPricing(order);
+    }
     return order;
   }
 

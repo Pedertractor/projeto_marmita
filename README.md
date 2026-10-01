@@ -1,6 +1,6 @@
-# Mesa
+# Marmita
 
-Sistema **Mesa** de solicitação de marmitas com papéis **SUPER_ADMIN**, **RH**, **RESTAURANT** e **REQUESTER**.
+Sistema **Marmita** de solicitação de marmitas com papéis **SUPER_ADMIN**, **RH**, **RESTAURANT** e **REQUESTER**. Mascote: **Tigela**.
 
 ## Pré-requisitos
 

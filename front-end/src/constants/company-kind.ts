@@ -19,5 +19,9 @@ export function internalUnitFromKind(kind: CompanyKind): Unit | null {
 }
 
 export function isSyntheticInternalEmail(email: string): boolean {
-  return email.trim().toLowerCase().endsWith('@mesa.internal');
+  const normalized = email.trim().toLowerCase();
+  return (
+    normalized.endsWith('@marmita.internal') ||
+    normalized.endsWith('@mesa.internal')
+  );
 }

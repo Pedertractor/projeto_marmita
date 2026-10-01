@@ -1,12 +1,12 @@
 import { motion, useReducedMotion } from 'motion/react';
 import { cn } from '@/lib/utils';
 
-type MesaSoupIconProps = {
+type MarmitaSoupIconProps = {
   size?: number;
   className?: string;
 };
 
-export function MesaSoupIcon({ size = 24, className }: MesaSoupIconProps) {
+export function MarmitaSoupIcon({ size = 24, className }: MarmitaSoupIconProps) {
   const reduceMotion = useReducedMotion();
 
   const steamAnimate = reduceMotion

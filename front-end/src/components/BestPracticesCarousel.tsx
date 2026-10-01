@@ -149,7 +149,7 @@ export function BestPracticesCarousel({ className }: { className?: string }) {
 
   return (
     <section
-      className={cn('flex h-full flex-col gap-3', className)}
+      className={cn('flex h-full min-w-0 max-w-full flex-col gap-3', className)}
       aria-roledescription='carrossel'
       onMouseEnter={() => {
         if (window.matchMedia('(hover: hover)').matches) pause('hover');
@@ -162,7 +162,7 @@ export function BestPracticesCarousel({ className }: { className?: string }) {
       <div
         ref={scrollRef}
         className={cn(
-          'flex min-h-0 flex-1 snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain scroll-smooth',
+          'flex min-h-0 min-w-0 max-w-full flex-1 snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain scroll-smooth',
           'touch-pan-x select-none scrollbar-none',
         )}
         onScroll={updateActive}
@@ -178,20 +178,20 @@ export function BestPracticesCarousel({ className }: { className?: string }) {
           <article
             key={tip.id}
             role='listitem'
-            className='relative flex min-h-31 w-[calc(100%-1.25rem)] shrink-0 snap-center items-center overflow-hidden rounded-2xl bg-card shadow-card lg:h-full lg:min-h-40 lg:w-full'
+            className='relative flex min-h-31 w-[min(100%,calc(100%-1.25rem))] max-w-full shrink-0 snap-center items-center overflow-hidden rounded-2xl bg-card shadow-card lg:h-full lg:min-h-40 lg:w-full'
           >
             <img
               src={tip.image}
               alt=''
               aria-hidden
               draggable={false}
-              className='pointer-events-none absolute top-1/2 -right-7 z-0 h-[118%] w-[48%] -translate-y-1/2 object-contain object-right'
+              className='pointer-events-none absolute top-1/2 -right-7 z-0 h-[118%] w-[48%] max-w-[48%] -translate-y-1/2 object-contain object-right'
             />
             <div
               aria-hidden
               className='pointer-events-none absolute inset-y-0 left-0 z-1 w-[64%] bg-linear-to-r from-card from-72% to-transparent'
             />
-            <div className='relative z-10 w-[58%] px-4 py-4'>
+            <div className='relative z-10 min-w-0 w-[58%] px-4 py-4'>
               <h3 className='text-sm font-semibold'>{tip.title}</h3>
               <p className='mt-1 text-sm leading-relaxed text-muted-foreground'>{tip.text}</p>
             </div>

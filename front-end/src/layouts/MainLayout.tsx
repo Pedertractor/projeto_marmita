@@ -1,11 +1,13 @@
 import { matchPath, Outlet, useLocation } from 'react-router-dom';
 
 import { AppSidebar } from '@/components/app-sidebar';
+import { RestaurantOrderChat } from '@/components/restaurant-order-chat';
 import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
 } from '@/components/ui/sidebar';
+import { useAuth } from '@/contexts/useAuth';
 import { ROUTES } from '@/routes/constants';
 
 const HIDE_CHROME_HEADER_PATTERNS = [
@@ -16,9 +18,12 @@ const HIDE_CHROME_HEADER_PATTERNS = [
 
 export function MainLayout() {
   const { pathname } = useLocation();
+  const { user } = useAuth();
   const hideChromeHeader = HIDE_CHROME_HEADER_PATTERNS.some((pattern) =>
     matchPath({ path: pattern, end: true }, pathname),
   );
+  const showRestaurantChat =
+    user?.role === 'RESTAURANT' || user?.role === 'SUPER_ADMIN';
 
   return (
     <SidebarProvider defaultOpen={false}>
@@ -33,6 +38,7 @@ export function MainLayout() {
           <Outlet />
         </div>
       </SidebarInset>
+      {showRestaurantChat ? <RestaurantOrderChat /> : null}
     </SidebarProvider>
   );
 }

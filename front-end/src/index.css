@@ -156,6 +156,31 @@
   }
 }
 
+@keyframes waiting-ellipsis {
+  0%,
+  20% {
+    opacity: 0.2;
+  }
+  40% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.2;
+  }
+}
+
+.waiting-ellipsis > span {
+  animation: waiting-ellipsis 1.2s infinite;
+}
+
+.waiting-ellipsis > span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.waiting-ellipsis > span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
 @keyframes p5-panel-in-right {
   from {
     opacity: 0;
@@ -184,4 +209,33 @@
 
 .p5-panel-enter-back {
   animation: p5-panel-in-left 320ms ease-out both;
+}
+
+@keyframes auth-food-rain-fall {
+  0% {
+    transform: translate3d(0, -12vh, 0) rotate(-8deg);
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  92% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(var(--auth-rain-drift, 0px), 110vh, 0) rotate(14deg);
+    opacity: 0;
+  }
+}
+
+.auth-food-rain-drop {
+  will-change: transform, opacity;
+  animation: auth-food-rain-fall var(--auth-rain-duration, 16s) linear
+    var(--auth-rain-delay, 0s) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-food-rain-drop {
+    animation: none;
+  }
 }

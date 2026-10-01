@@ -40,7 +40,7 @@ export interface RegistrationRequest {
 
 export interface CreateRegistrationPayload {
   name?: string;
-  email?: string;
+  email: string;
   phone: string;
   password: string;
   companyKind: CompanyKind;

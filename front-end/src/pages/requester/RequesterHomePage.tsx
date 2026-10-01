@@ -1,18 +1,21 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronRight, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { BestPracticesCarousel } from '@/components/BestPracticesCarousel';
-import { MesaSoupIcon } from '@/components/mesa-soup-icon';
+import { RequesterHomeCarousel } from '@/components/RequesterHomeCarousel';
+import {
+  isRequesterFirstStepsDone,
+  RequesterFirstSteps,
+} from '@/components/RequesterFirstSteps';
+import { MarmitaSoupIcon } from '@/components/marmita-soup-icon';
 import { MenuItemIcon } from '@/components/MenuItemIcon';
-import { OrderStatusBadge } from '@/components/OrderStatusBadge';
 import { useAuth } from '@/contexts/useAuth';
 import { menusApi } from '@/services/menus';
 import { ordersApi } from '@/services/orders';
 import { ROUTES, requesterOrderPath, requesterOrderWizardPath } from '@/routes/constants';
 import type { Order } from '@/types/domain';
 import { todayISODate, formatDate } from '@/utils/format';
-import { orderFulfillmentLabel } from '@/utils/status-labels';
-import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -30,6 +33,12 @@ export function RequesterHomePage() {
   const { user } = useAuth();
   const today = todayISODate();
   const firstName = user?.name?.trim().split(/\s+/)[0];
+  const [guideOpen, setGuideOpen] = useState(false);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    if (!isRequesterFirstStepsDone(user.id)) setGuideOpen(true);
+  }, [user?.id]);
 
   const { data: menu, isLoading: menuLoading } = useQuery({
     queryKey: ['menu', today],
@@ -57,89 +66,39 @@ export function RequesterHomePage() {
       : requesterOrderPath(todayOrder.id)
     : null;
 
-  const todayOrderCard = (
-    <Card
-      className={cn(
-        todayOrderHref &&
-          'cursor-pointer transition-colors hover:bg-primary/[0.04]',
-      )}
-    >
-      <CardHeader className='pb-2'>
-        <CardTitle className='text-base'>Pedido de hoje</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {ordersLoading ? (
-          <p className='text-sm text-muted-foreground'>Carregando…</p>
-        ) : !todayOrder ? (
-          <p className='text-sm text-muted-foreground'>
-            Você ainda não solicitou marmitas hoje.
-          </p>
-        ) : todayOrder.status === 'DRAFT' ? (
-          <div className='flex items-center justify-between gap-3'>
-            <div>
-              <p className='text-sm font-medium'>Pedido em rascunho</p>
-              <p className='text-xs text-muted-foreground'>
-                #{todayOrder.orderCode} · continue de onde parou
-              </p>
-            </div>
-            <span className='inline-flex items-center text-sm font-medium text-primary'>
-              Continuar
-              <ChevronRight className='size-4' />
-            </span>
-          </div>
-        ) : (
-          <div className='flex items-center justify-between gap-3'>
-            <div>
-              <p className='font-medium tracking-tight'>#{todayOrder.orderCode}</p>
-              <p className='text-xs text-muted-foreground'>
-                {todayOrder.quantity} marmita{todayOrder.quantity > 1 ? 's' : ''}
-                {todayOrder.fulfillmentType
-                  ? ` · ${orderFulfillmentLabel(todayOrder.fulfillmentType)}`
-                  : ''}
-              </p>
-            </div>
-            <OrderStatusBadge status={todayOrder.status} />
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-
   return (
-    <div className='space-y-5'>
+    <div className='min-w-0 space-y-5 overflow-x-clip'>
       <header>
         <h1 className='text-xl font-semibold tracking-tight'>
           Bem-vindo{firstName ? `, ${firstName}` : ''}
         </h1>
-        <p className='text-sm text-muted-foreground'>Solicite as marmitas de hoje.</p>
       </header>
 
-      {todayOrderHref ? (
-        <Link
-          to={todayOrderHref}
-          className='block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
-          aria-label={
-            todayOrder?.status === 'DRAFT'
-              ? 'Continuar pedido de hoje'
-              : 'Ver pedido de hoje'
-          }
-        >
-          {todayOrderCard}
-        </Link>
-      ) : (
-        todayOrderCard
-      )}
+      {user?.id ? (
+        <RequesterFirstSteps
+          userId={user.id}
+          open={guideOpen}
+          onOpenChange={setGuideOpen}
+        />
+      ) : null}
 
-      <div className='grid gap-5 lg:grid-cols-2 lg:items-stretch'>
-        <Card variant='promo' className='h-full'>
+      <RequesterHomeCarousel
+        todayOrder={todayOrder}
+        ordersLoading={ordersLoading}
+        todayOrderHref={todayOrderHref}
+        onOpenFirstSteps={() => setGuideOpen(true)}
+      />
+
+      <div className='grid min-w-0 gap-5 lg:grid-cols-2 lg:items-stretch'>
+        <Card variant='promo' className='h-full min-w-0 max-w-full overflow-hidden'>
           <CardHeader className='pb-2'>
             <CardTitle className='flex items-center gap-2 text-lg'>
-              <MesaSoupIcon size={20} className='text-primary' />
+              <MarmitaSoupIcon size={20} className='text-primary' />
               Cardápio de hoje
             </CardTitle>
             <CardDescription>{formatDate(today)}</CardDescription>
           </CardHeader>
-          <CardContent className='flex flex-1 flex-col space-y-3'>
+          <CardContent className='flex min-w-0 flex-1 flex-col space-y-3'>
             {menuLoading ? (
               <p className='text-sm text-muted-foreground'>Carregando…</p>
             ) : !menu ? (
@@ -155,32 +114,43 @@ export function RequesterHomePage() {
                 {availableItems.map((item) => (
                   <li
                     key={item.id}
-                    className='inline-flex items-center gap-1.5 rounded-full bg-background px-3 py-1 text-sm shadow-sm'
+                    className='inline-flex max-w-full items-center gap-1.5 rounded-full bg-background px-3 py-1 text-sm shadow-sm'
                   >
                     <MenuItemIcon iconKey={item.iconKey} size={16} className='text-primary' />
-                    {item.name}
+                    <span className='truncate'>{item.name}</span>
                   </li>
                 ))}
               </ul>
             )}
-            <div className='mt-auto'>
+            <div className='mt-auto min-w-0'>
               {canRequest ? (
-                <Button asChild className='w-full'>
+                <Button asChild className='w-full max-w-full'>
                   <Link to={ROUTES.REQUESTER_ORDER_NEW}>
-                    <Plus className='mr-2 size-4' />
+                    <Plus className='mr-2 size-4 shrink-0' />
                     {requestLabel}
                   </Link>
                 </Button>
               ) : (
-                <Button className='w-full' disabled>
-                  {waitingForMenu ? 'Aguardando cardápio' : requestLabel}
+                <Button className='w-full max-w-full' disabled>
+                  {waitingForMenu ? (
+                    <span className='inline-flex items-center'>
+                      Aguardando cardápio
+                      <span className='waiting-ellipsis ml-0.5 inline-flex' aria-hidden>
+                        <span>.</span>
+                        <span>.</span>
+                        <span>.</span>
+                      </span>
+                    </span>
+                  ) : (
+                    requestLabel
+                  )}
                 </Button>
               )}
             </div>
           </CardContent>
         </Card>
 
-        <BestPracticesCarousel className='h-full' />
+        <BestPracticesCarousel className='h-full min-w-0' />
       </div>
     </div>
   );

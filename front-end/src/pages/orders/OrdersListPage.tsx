@@ -5,6 +5,8 @@ import { Loader2 } from 'lucide-react';
 
 import { ordersApi } from '@/services/orders';
 import { adminOrderPath } from '@/routes/constants';
+import { canViewOrderPricing } from '@/config/permissions';
+import { useAuth } from '@/contexts/useAuth';
 import {
   formatCurrency,
   formatDate,
@@ -41,6 +43,7 @@ import {
   type OrdersListLocationState,
 } from '@/pages/orders/orders-list-url';
 import {
+  DEFAULT_ORDERS_SORT,
   nextSortDirection,
   sortOrders,
   type OrdersSortColumn,
@@ -49,9 +52,13 @@ import { OrdersListSortableHead } from '@/pages/orders/OrdersListSortableHead';
 
 export function OrdersListPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const showPricing = user?.role != null && canViewOrderPricing(user.role);
   const [searchParams, setSearchParams] = useSearchParams();
-  const { menuDate, status, page, sort, sortDir } =
+  const { menuDate, status, page, sort: sortRaw, sortDir } =
     parseOrdersListFilters(searchParams);
+  const sort =
+    !showPricing && sortRaw === 'total' ? DEFAULT_ORDERS_SORT : sortRaw;
 
   const patchFilters = (patch: {
     menuDate?: string;
@@ -218,9 +225,11 @@ export function OrdersListPage() {
                     <span className='text-muted-foreground'>
                       {order.quantity} marmita{order.quantity > 1 ? 's' : ''}
                     </span>
-                    <span className='font-medium tabular-nums'>
-                      {formatCurrency(order.totalPrice)}
-                    </span>
+                    {showPricing ? (
+                      <span className='font-medium tabular-nums'>
+                        {formatCurrency(order.totalPrice)}
+                      </span>
+                    ) : null}
                   </div>
                 </CardContent>
               </Card>
@@ -288,13 +297,15 @@ export function OrdersListPage() {
                 onSort={handleSort}
                 className='text-center [&_button]:mx-auto'
               />
-              <OrdersListSortableHead
-                label='Total'
-                column='total'
-                activeColumn={sort}
-                direction={sortDir}
-                onSort={handleSort}
-              />
+              {showPricing ? (
+                <OrdersListSortableHead
+                  label='Total'
+                  column='total'
+                  activeColumn={sort}
+                  direction={sortDir}
+                  onSort={handleSort}
+                />
+              ) : null}
               <OrdersListSortableHead
                 label='Status'
                 column='status'
@@ -306,7 +317,7 @@ export function OrdersListPage() {
           </TableHeader>
           <TableBody>
             {pageItems.length === 0 ? (
-              <TableEmptyRow colSpan={7}>
+              <TableEmptyRow colSpan={showPricing ? 7 : 6}>
                 Nenhum pedido encontrado.
               </TableEmptyRow>
             ) : (
@@ -337,9 +348,11 @@ export function OrdersListPage() {
                   <TableCell className='px-3 py-2 text-center text-sm tabular-nums'>
                     {order.quantity}
                   </TableCell>
-                  <TableCell className='px-3 py-2 text-sm tabular-nums font-medium'>
-                    {formatCurrency(order.totalPrice)}
-                  </TableCell>
+                  {showPricing ? (
+                    <TableCell className='px-3 py-2 text-sm tabular-nums font-medium'>
+                      {formatCurrency(order.totalPrice)}
+                    </TableCell>
+                  ) : null}
                   <TableCell className='px-3 py-2'>
                     <OrderStatusBadge status={order.status} compact />
                   </TableCell>

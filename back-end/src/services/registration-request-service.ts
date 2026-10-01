@@ -45,7 +45,7 @@ export class RegistrationRequestService {
     const pending = await regRepo.findPendingByEmail(normalized);
     if (pending) {
       throw new HttpError(
-        'Já existe uma solicitação pendente para este e-mail. Aguarde a análise do time do Mesa.',
+        'Já existe uma solicitação pendente para este e-mail. Aguarde a análise do time da Marmita.',
         409,
       );
     }
@@ -66,7 +66,7 @@ export class RegistrationRequestService {
     );
     if (cardUser) {
       throw new HttpError(
-        'Este cartão já possui cadastro no Mesa. Use a tela de login para entrar.',
+        'Este cartão já possui cadastro na Marmita. Use a tela de login para entrar.',
         409,
       );
     }
@@ -74,7 +74,7 @@ export class RegistrationRequestService {
     const existingUser = await userRepo.findByEmail(email.trim().toLowerCase());
     if (existingUser) {
       throw new HttpError(
-        'Este cartão já possui cadastro no Mesa. Use a tela de login para entrar.',
+        'Este cartão já possui cadastro na Marmita. Use a tela de login para entrar.',
         409,
       );
     }
@@ -82,7 +82,7 @@ export class RegistrationRequestService {
     const pendingCard = await regRepo.findPendingByCard(cardNumber, unit);
     if (pendingCard) {
       throw new HttpError(
-        'Já existe uma solicitação pendente para este cartão. Aguarde a análise do time do Mesa.',
+        'Já existe uma solicitação pendente para este cartão. Aguarde a análise do time da Marmita.',
         409,
       );
     }
@@ -138,7 +138,7 @@ export class RegistrationRequestService {
 
   async create(input: {
     name?: string | undefined;
-    email?: string | undefined;
+    email: string;
     phone: string;
     password: string;
     companyKind: $Enums.CompanyKind;
@@ -175,12 +175,12 @@ export class RegistrationRequestService {
       cardNumber = validated.cardNumber;
       employeeExternalId = validated.employeeExternalId;
       companyName = KIND_TO_COMPANY_NAME[input.companyKind];
-      const optionalEmail = input.email?.trim().toLowerCase() ?? '';
-      email = optionalEmail || syntheticEmailForCard(unit, cardNumber);
-
-      if (optionalEmail) {
-        await this.assertEmailAvailableForRegistration(prisma, optionalEmail);
+      email = input.email?.trim().toLowerCase() ?? '';
+      if (!email) {
+        throw new HttpError('Informe o e-mail', 400);
       }
+
+      await this.assertEmailAvailableForRegistration(prisma, email);
 
       const company = await companyRepo.findByCode(input.companyKind);
       if (company) {

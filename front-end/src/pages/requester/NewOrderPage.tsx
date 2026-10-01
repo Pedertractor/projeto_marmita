@@ -21,6 +21,7 @@ import { MenuItemsCarousel } from '@/components/MenuItemsCarousel';
 import { MenuItemsGrid } from '@/components/MenuItemsGrid';
 import { MenuItemIcon } from '@/components/MenuItemIcon';
 import { OrderSuccessOverlay } from '@/components/OrderSuccessOverlay';
+import { QuantityMascotScene } from '@/components/QuantityMascotScene';
 import { menusApi } from '@/services/menus';
 import { ordersApi } from '@/services/orders';
 import { ROUTES, requesterOrderPath } from '@/routes/constants';
@@ -514,81 +515,36 @@ export function NewOrderPage({ editMode = false }: { editMode?: boolean }) {
           </div>
         </div>
 
-        <div className='mx-auto mt-4 flex w-full max-w-2xl flex-1 flex-col gap-4'>
-          <MealBagsProgress
-            count={quantity}
-            currentIndex={
-              step === 1
-                ? recipientIndex
-                : step === 2 && !showMealCheck
-                  ? mealIndex
-                  : -1
-            }
-            completedCount={
-              step === 1
-                ? recipientIndex
-                : step === 2
-                  ? showMealCheck
-                    ? mealIndex + 1
-                    : mealIndex
-                  : step >= 3
-                    ? quantity
-                    : 0
-            }
-          />
-
-          {step === 0 && (
-            <Card className='mx-auto w-full max-w-md'>
-              <CardHeader>
-                <CardTitle>Quantas marmitas?</CardTitle>
-                {menuLoading ? (
-                  <CardDescription>Carregando cardápio…</CardDescription>
-                ) : !menu ? (
-                  <CardDescription>Sem cardápio para hoje</CardDescription>
-                ) : null}
-              </CardHeader>
-              <CardContent className='space-y-3'>
-                <div className='flex max-w-xs items-center gap-2'>
-                  <Button
-                    type='button'
-                    variant='outline'
-                    size='icon'
-                    className='size-10 shrink-0 rounded-xl'
-                    disabled={quantity <= 1}
-                    aria-label='Diminuir quantidade'
-                    onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                  >
-                    <Minus className='size-4' />
-                  </Button>
-                  <Input
-                    id='qty'
-                    type='number'
-                    min={1}
-                    max={50}
-                    inputMode='numeric'
-                    aria-label='Quantidade de marmitas'
-                    value={quantity}
-                    className='h-10 flex-1 text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none'
-                    onChange={(e) => {
-                      const parsed = Number(e.target.value);
-                      if (!Number.isFinite(parsed)) return;
-                      setQuantity(Math.min(50, Math.max(1, parsed)));
-                    }}
-                  />
-                  <Button
-                    type='button'
-                    variant='outline'
-                    size='icon'
-                    className='size-10 shrink-0 rounded-xl'
-                    disabled={quantity >= 50}
-                    aria-label='Aumentar quantidade'
-                    onClick={() => setQuantity((q) => Math.min(50, q + 1))}
-                  >
-                    <Plus className='size-4' />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+        <div
+          className={cn(
+            'mx-auto mt-4 flex w-full max-w-2xl flex-1 flex-col',
+            step === 0 ? 'gap-0' : 'gap-4',
+          )}
+        >
+          {step === 0 ? (
+            <QuantityMascotScene quantity={quantity} />
+          ) : (
+            <MealBagsProgress
+              count={quantity}
+              currentIndex={
+                step === 1
+                  ? recipientIndex
+                  : step === 2 && !showMealCheck
+                    ? mealIndex
+                    : -1
+              }
+              completedCount={
+                step === 1
+                  ? recipientIndex
+                  : step === 2
+                    ? showMealCheck
+                      ? mealIndex + 1
+                      : mealIndex
+                    : step >= 3
+                      ? quantity
+                      : 0
+              }
+            />
           )}
 
           {step === 1 && meals[recipientIndex] ? (
@@ -783,7 +739,69 @@ export function NewOrderPage({ editMode = false }: { editMode?: boolean }) {
             </Card>
           )}
 
-          <div className='mt-auto flex gap-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]'>
+          {step === 0 && (
+            <Card
+              variant='compact'
+              className='mx-auto mt-auto w-full max-w-md py-3'
+            >
+              <CardHeader className='gap-1 px-4 pb-2'>
+                <CardTitle className='text-base'>Quantas marmitas?</CardTitle>
+                {menuLoading ? (
+                  <CardDescription>Carregando cardápio…</CardDescription>
+                ) : !menu ? (
+                  <CardDescription>Sem cardápio para hoje</CardDescription>
+                ) : null}
+              </CardHeader>
+              <CardContent className='px-4 pb-1'>
+                <div className='flex max-w-xs items-center gap-2'>
+                  <Button
+                    type='button'
+                    variant='outline'
+                    size='icon'
+                    className='size-9 shrink-0 rounded-xl'
+                    disabled={quantity <= 1}
+                    aria-label='Diminuir quantidade'
+                    onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                  >
+                    <Minus className='size-4' />
+                  </Button>
+                  <Input
+                    id='qty'
+                    type='number'
+                    min={1}
+                    max={50}
+                    inputMode='numeric'
+                    aria-label='Quantidade de marmitas'
+                    value={quantity}
+                    className='h-9 flex-1 text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none'
+                    onChange={(e) => {
+                      const parsed = Number(e.target.value);
+                      if (!Number.isFinite(parsed)) return;
+                      setQuantity(Math.min(50, Math.max(1, parsed)));
+                    }}
+                  />
+                  <Button
+                    type='button'
+                    variant='outline'
+                    size='icon'
+                    className='size-9 shrink-0 rounded-xl'
+                    disabled={quantity >= 50}
+                    aria-label='Aumentar quantidade'
+                    onClick={() => setQuantity((q) => Math.min(50, q + 1))}
+                  >
+                    <Plus className='size-4' />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <div
+            className={cn(
+              'flex gap-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]',
+              step !== 0 && 'mt-auto',
+            )}
+          >
             {step > 0 ? (
               <Button
                 variant='outline'

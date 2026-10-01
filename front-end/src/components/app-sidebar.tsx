@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { NavMain } from '@/components/nav-main';
-import { MesaSoupIcon } from '@/components/mesa-soup-icon';
+import { MarmitaSoupIcon } from '@/components/marmita-soup-icon';
 import { NavUser } from '@/components/nav-user';
 import { SidebarAppBrand } from '@/components/team-switcher';
 import {
@@ -43,9 +43,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     <Sidebar collapsible='icon' {...props}>
       <SidebarHeader>
         <SidebarAppBrand
-          name='Mesa'
+          name='Marmita'
           subtitle={user?.role ? formattedRoles[user.role] : 'App'}
-          logo={<MesaSoupIcon size={16} />}
+          logo={<MarmitaSoupIcon size={16} />}
         />
       </SidebarHeader>
       <SidebarContent>

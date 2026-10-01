@@ -1,7 +1,7 @@
 {
   "name": "solicitacao-marmita-back-end",
   "version": "1.0.0",
-  "description": "API Mesa",
+  "description": "API Marmita",
   "main": "index.js",
   "scripts": {
     "start": "node ./dist/server.js",

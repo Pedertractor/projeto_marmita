@@ -37,7 +37,7 @@ export async function createRegistrationRequest(
   const bodySchema = z
     .object({
       name: z.string().optional(),
-      email: z.email('E-mail inválido').optional(),
+      email: z.email('E-mail inválido'),
       phone: z.string().min(8, 'Informe o celular'),
       password: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
       companyKind: z.enum($Enums.CompanyKind),
@@ -55,7 +55,7 @@ export async function createRegistrationRequest(
           path: ['cardNumber'],
         });
       }
-      if (!internal && !data.email?.trim()) {
+      if (!data.email?.trim()) {
         ctx.addIssue({
           code: 'custom',
           message: 'Informe o e-mail',
@@ -69,7 +69,7 @@ export async function createRegistrationRequest(
   return reply.status(201).send({
     registration,
     message:
-      'Solicitação enviada ao time do Mesa. Aguarde a avaliação para acessar o sistema.',
+      'Solicitação enviada ao time da Marmita. Aguarde a avaliação para acessar o sistema.',
   });
 }
 

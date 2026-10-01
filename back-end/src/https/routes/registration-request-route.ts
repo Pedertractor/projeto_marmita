@@ -57,7 +57,7 @@ export async function registrationRequestRoutes(app: FastifyInstance) {
         summary: 'Solicitar cadastro público (aguarda RH)',
         body: {
           type: 'object',
-          required: ['phone', 'password', 'companyKind'],
+          required: ['email', 'phone', 'password', 'companyKind'],
           properties: {
             name: { type: 'string' },
             email: { type: 'string', format: 'email' },
