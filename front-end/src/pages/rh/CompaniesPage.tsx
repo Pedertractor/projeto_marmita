@@ -173,7 +173,7 @@ export function CompaniesPage() {
             ) : (
               pageItems.map((company) => (
                 <TableRow key={company.id}>
-                  <TableCell className='max-w-[14rem] truncate px-3 py-2 text-sm font-medium'>
+                  <TableCell className='max-w-56 truncate px-3 py-2 text-sm font-medium'>
                     {company.name}
                   </TableCell>
                   <TableCell className='px-3 py-2'>

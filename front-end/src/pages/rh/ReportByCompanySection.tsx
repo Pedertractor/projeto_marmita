@@ -138,7 +138,7 @@ export function ReportByCompanySection({
                     pageItems.map((row) => (
                       <TableRow
                         key={row.companyId}
-                        className='cursor-pointer hover:bg-primary/[0.04]'
+                        className='cursor-pointer hover:bg-primary/4'
                         tabIndex={0}
                         role='button'
                         onClick={() =>
@@ -185,7 +185,7 @@ export function ReportByCompanySection({
                     <Link
                       key={order.id}
                       to={adminOrderPath(order.id)}
-                      className='flex items-center justify-between gap-2 border-t border-primary/10 px-3 py-2.5 transition-colors first:border-t-0 hover:bg-primary/[0.04]'
+                      className='flex items-center justify-between gap-2 border-t border-primary/10 px-3 py-2.5 transition-colors first:border-t-0 hover:bg-primary/4'
                     >
                       <div className='min-w-0'>
                         <p className='font-medium'>

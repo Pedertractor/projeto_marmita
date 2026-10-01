@@ -64,7 +64,7 @@ export function OrderStatusBadge({
 
         'justify-center gap-1 rounded-full border-0 font-medium',
 
-        compact ? 'w-[6.75rem] px-1.5 py-0 text-[0.6875rem]' : 'w-[7.75rem] px-2.5 py-0.5',
+        compact ? 'w-27 px-1.5 py-0 text-[11px]' : 'w-31 px-2.5 py-0.5',
 
         ORDER_STATUS_VARIANT[status],
 

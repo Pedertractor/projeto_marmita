@@ -399,7 +399,7 @@ export function MealPricePage() {
 
             >
 
-              <div className='relative flex min-h-[11.5rem] flex-1 flex-col bg-gradient-to-br from-primary/[0.12] via-primary/[0.06] to-primary/[0.04] px-4 py-5 sm:min-h-[12.5rem] sm:px-5 sm:py-6'>
+              <div className='relative flex min-h-46 flex-1 flex-col bg-linear-to-br from-primary/12 via-primary/6 to-primary/4 px-4 py-5 sm:min-h-50 sm:px-5 sm:py-6'>
 
                 {current ? (
 
@@ -429,7 +429,7 @@ export function MealPricePage() {
 
                   draggable={false}
 
-                  className='pointer-events-none absolute right-0 bottom-0 z-0 h-[92%] w-auto max-w-[48%] object-contain object-right-bottom select-none sm:max-w-[42%]'
+                  className='pointer-events-none absolute right-0 bottom-0 z-0 h-[92%] w-auto max-w-[48%] object-contain object-bottom-right select-none sm:max-w-[42%]'
 
                 />
 
@@ -637,9 +637,9 @@ export function MealPricePage() {
 
                       priceDelta > 0
 
-                        ? 'border-primary/20 bg-primary/[0.06] text-primary'
+                        ? 'border-primary/20 bg-primary/6 text-primary'
 
-                        : 'border-amber-500/25 bg-amber-500/[0.06] text-amber-900 dark:text-amber-200',
+                        : 'border-amber-500/25 bg-amber-500/6 text-amber-900 dark:text-amber-200',
 
                     )}
 
@@ -807,7 +807,7 @@ export function MealPricePage() {
 
                             isCurrent &&
 
-                              'bg-primary/[0.04] hover:bg-primary/[0.06]',
+                              'bg-primary/4 hover:bg-primary/6',
 
                           )}
 

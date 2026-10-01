@@ -102,7 +102,7 @@ export function RestaurantDashboardPage() {
                   <img
                     src={mascotSrc}
                     alt=''
-                    className='pointer-events-none absolute right-0 bottom-0 h-32 w-auto max-w-[50%] object-contain object-right-bottom select-none'
+                    className='pointer-events-none absolute right-0 bottom-0 h-32 w-auto max-w-[50%] object-contain object-bottom-right select-none'
                     draggable={false}
                   />
                 ) : null}

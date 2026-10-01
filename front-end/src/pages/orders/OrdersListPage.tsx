@@ -150,7 +150,7 @@ export function OrdersListPage() {
             </Label>
             <DatePicker
               id='orders-menu-date'
-              className='!h-10 min-h-10 w-auto rounded-2xl px-3 py-2'
+              className='h-10! min-h-10 w-auto rounded-2xl px-3 py-2'
               value={parseISODateLocal(menuDate)}
               onChange={(date) => {
                 if (date) patchFilters({ menuDate: toISODate(date), page: 1 });
@@ -199,7 +199,7 @@ export function OrdersListPage() {
             pageItems.map((order) => (
               <Card
                 key={order.id}
-                className='cursor-pointer transition hover:bg-primary/[0.04]'
+                className='cursor-pointer transition hover:bg-primary/4'
                 onClick={() => openOrderDetail(order.id)}
               >
                 <CardContent className='space-y-2 px-4 py-3'>
@@ -324,7 +324,7 @@ export function OrdersListPage() {
               pageItems.map((order) => (
                 <TableRow
                   key={order.id}
-                  className='cursor-pointer hover:bg-primary/[0.04]'
+                  className='cursor-pointer hover:bg-primary/4'
                   onClick={() => openOrderDetail(order.id)}
                 >
                   <TableCell className='px-3 py-2 text-sm font-medium tracking-tight'>
@@ -334,13 +334,13 @@ export function OrdersListPage() {
                     {formatDate(order.menuDate)}
                   </TableCell>
                   <TableCell
-                    className='max-w-[12rem] truncate px-3 py-2 text-sm'
+                    className='max-w-48 truncate px-3 py-2 text-sm'
                     title={order.companyName}
                   >
                     {order.companyName}
                   </TableCell>
                   <TableCell
-                    className='max-w-[12rem] truncate px-3 py-2 text-sm text-muted-foreground'
+                    className='max-w-48 truncate px-3 py-2 text-sm text-muted-foreground'
                     title={order.requesterName}
                   >
                     {order.requesterName}
