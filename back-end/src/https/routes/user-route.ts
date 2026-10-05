@@ -4,6 +4,13 @@ import {
   register,
   getMe,
   changePassword,
+  sendEmailChallenge,
+  verifyEmailChallenge,
+  forceEmailChallenge,
+  updateMyEmail,
+  forgotPassword,
+  previewPasswordReset,
+  resetPasswordWithCode,
   listUsers,
   getUserById,
   updateUserByAdmin,
@@ -58,6 +65,61 @@ export async function userRoutes(app: FastifyInstance) {
       },
     },
     login,
+  );
+
+  app.post(
+    '/forgot-password',
+    {
+      schema: {
+        tags: ['users'],
+        summary: 'Solicitar código para redefinir senha',
+        body: {
+          type: 'object',
+          required: ['email'],
+          properties: {
+            email: { type: 'string', format: 'email' },
+          },
+        },
+      },
+    },
+    forgotPassword,
+  );
+
+  app.get(
+    '/reset-password/preview',
+    {
+      schema: {
+        tags: ['users'],
+        summary: 'Pré-visualizar usuário do magic link de redefinição',
+        querystring: {
+          type: 'object',
+          required: ['token'],
+          properties: {
+            token: { type: 'string' },
+          },
+        },
+      },
+    },
+    previewPasswordReset,
+  );
+
+  app.post(
+    '/reset-password',
+    {
+      schema: {
+        tags: ['users'],
+        summary: 'Redefinir senha com token do magic link',
+        body: {
+          type: 'object',
+          required: ['token', 'newPassword'],
+          properties: {
+            token: { type: 'string' },
+            newPassword: { type: 'string', minLength: 6 },
+          },
+        },
+      },
+    },
+    resetPasswordWithCode,
   );
 
   app.post(
@@ -120,6 +182,81 @@ export async function userRoutes(app: FastifyInstance) {
       },
     },
     changePassword,
+  );
+
+  app.post(
+    '/me/email-challenge/send',
+    {
+      preHandler: [
+        authMiddleware,
+        roleMiddleware([$Enums.UserRole.REQUESTER]),
+      ],
+      schema: {
+        tags: ['users'],
+        summary: 'Enviar código de verificação por e-mail',
+        security: [{ bearerAuth: [] }],
+      },
+    },
+    sendEmailChallenge,
+  );
+
+  app.post(
+    '/me/email-challenge/verify',
+    {
+      preHandler: [
+        authMiddleware,
+        roleMiddleware([$Enums.UserRole.REQUESTER]),
+      ],
+      schema: {
+        tags: ['users'],
+        summary: 'Confirmar código de verificação',
+        security: [{ bearerAuth: [] }],
+        body: {
+          type: 'object',
+          required: ['code'],
+          properties: {
+            code: { type: 'string', minLength: 6, maxLength: 6 },
+          },
+        },
+      },
+    },
+    verifyEmailChallenge,
+  );
+
+  app.post(
+    '/me/email-challenge/force',
+    {
+      preHandler: [
+        authMiddleware,
+        roleMiddleware([$Enums.UserRole.REQUESTER]),
+      ],
+      schema: {
+        tags: ['users'],
+        summary: 'Simular vencimento da verificação por e-mail',
+        security: [{ bearerAuth: [] }],
+      },
+    },
+    forceEmailChallenge,
+  );
+
+  app.patch(
+    '/me/email',
+    {
+      preHandler: [authMiddleware],
+      schema: {
+        tags: ['users'],
+        summary: 'Atualizar e-mail de login do usuário autenticado',
+        security: [{ bearerAuth: [] }],
+        body: {
+          type: 'object',
+          required: ['email'],
+          properties: {
+            email: { type: 'string', format: 'email' },
+          },
+        },
+      },
+    },
+    updateMyEmail,
   );
 
   app.get(

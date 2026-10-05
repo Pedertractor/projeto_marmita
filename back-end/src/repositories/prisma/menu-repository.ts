@@ -11,6 +11,18 @@ const menuWithItemsInclude = {
       active: true,
     },
   },
+  createdBy: {
+    select: {
+      id: true,
+      name: true,
+    },
+  },
+  updatedBy: {
+    select: {
+      id: true,
+      name: true,
+    },
+  },
 } as const;
 
 export type MenuWithItems = Prisma.MenuGetPayload<{
@@ -56,6 +68,7 @@ export class MenuPrismaRepository {
   async upsertWithItems(data: {
     restaurantId: string;
     date: Date;
+    actingUserId: string;
     items: Array<{
       name: string;
       description?: string | null;
@@ -81,6 +94,8 @@ export class MenuPrismaRepository {
       return this.prisma.menu.update({
         where: { id: existing.id },
         data: {
+          createdById: existing.createdById ?? data.actingUserId,
+          updatedById: data.actingUserId,
           items: {
             create: data.items.map((item, index) => ({
               name: item.name,
@@ -99,6 +114,8 @@ export class MenuPrismaRepository {
       data: {
         restaurantId: data.restaurantId,
         date: data.date,
+        createdById: data.actingUserId,
+        updatedById: data.actingUserId,
         items: {
           create: data.items.map((item, index) => ({
             name: item.name,

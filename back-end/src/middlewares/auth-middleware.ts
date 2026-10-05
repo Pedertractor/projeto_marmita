@@ -21,7 +21,7 @@ export async function authMiddleware(
 
   const routeUrl = request.routeOptions.url ?? request.url;
   const isPasswordChangeRoute = routeUrl.endsWith('/users/me/change-password');
-  const isCurrentUserRoute = routeUrl.endsWith('/users/me');
+  const isCurrentUserRoute = /\/users\/me$/.test(routeUrl);
 
   if (
     principal.mustChangePassword &&
@@ -31,5 +31,23 @@ export async function authMiddleware(
     throw new HttpError('Altere sua senha para continuar', 403);
   }
 
+  if (
+    principal.needsEmailChallenge &&
+    !isEmailChallengeAllowedRoute(routeUrl)
+  ) {
+    throw new HttpError('Verifique seu e-mail para continuar', 403);
+  }
+
   request.user = { sub: principal.id, role: principal.role };
+}
+
+function isEmailChallengeAllowedRoute(routeUrl: string): boolean {
+  if (/\/users\/me$/.test(routeUrl)) return true;
+  return (
+    routeUrl.endsWith('/users/me/change-password') ||
+    routeUrl.endsWith('/users/me/email') ||
+    routeUrl.endsWith('/users/me/email-challenge/send') ||
+    routeUrl.endsWith('/users/me/email-challenge/verify') ||
+    routeUrl.endsWith('/users/me/email-challenge/force')
+  );
 }

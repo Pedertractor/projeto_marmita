@@ -25,3 +25,17 @@ export const changePasswordFormSchema = z
   });
 
 export type ChangePasswordFormData = z.infer<typeof changePasswordFormSchema>;
+
+export const forgotPasswordEmailSchema = z.object({
+  email: z.email('E-mail inválido'),
+});
+
+export const resetPasswordFormSchema = z
+  .object({
+    newPassword: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
+    confirmPassword: z.string().min(1, 'Confirme a nova senha'),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: 'As senhas não coincidem',
+    path: ['confirmPassword'],
+  });

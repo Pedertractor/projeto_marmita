@@ -32,6 +32,9 @@ export interface AuthUser {
   role: UserRole;
   active: boolean;
   mustChangePassword: boolean;
+  needsEmailChallenge: boolean;
+  hasRealEmail: boolean;
+  maskedEmail: string | null;
   companyId?: string | null;
   restaurantId?: string | null;
   company?: AuthCompany | null;

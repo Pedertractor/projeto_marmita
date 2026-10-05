@@ -155,7 +155,7 @@ export function LoginForm({
     <div className={cn('flex flex-col', className)} {...props}>
       {mustChangePassword ? (
         <>
-          <CardHeader className='px-4 text-center md:px-6'>
+          <CardHeader className='px-4 py-0 text-center md:px-6'>
             <CardTitle className='text-xl font-semibold tracking-tight text-foreground'>
               Alterar senha
             </CardTitle>
@@ -163,9 +163,9 @@ export function LoginForm({
               Defina uma nova senha para continuar
             </CardDescription>
           </CardHeader>
-          <CardContent className='px-4 md:px-6'>
+          <CardContent className='px-4 pt-4 md:px-6'>
             <form onSubmit={handleChangePasswordSubmit}>
-              <FieldGroup className='gap-5 md:gap-7'>
+              <FieldGroup className='gap-3 md:gap-4'>
                 <Field>
                   <FieldLabel htmlFor='newPassword'>Nova senha</FieldLabel>
                   <div className='relative'>
@@ -246,7 +246,7 @@ export function LoginForm({
         </>
       ) : (
         <>
-          <CardHeader className='px-4 text-center md:px-6'>
+          <CardHeader className='px-4 py-0 text-center md:px-6'>
             <CardTitle className='text-xl font-semibold tracking-tight text-foreground'>
               Bem-vindo
             </CardTitle>
@@ -256,9 +256,9 @@ export function LoginForm({
                 : 'Entre com e-mail e senha'}
             </CardDescription>
           </CardHeader>
-          <CardContent className='px-4 md:px-6'>
+          <CardContent className='px-4 pt-4 md:px-6'>
             <form onSubmit={handleSubmit}>
-              <FieldGroup className='gap-5 md:gap-7'>
+              <FieldGroup className='gap-3 md:gap-4'>
                   <Field>
                     <FieldLabel>Empresa</FieldLabel>
                     <div
@@ -372,6 +372,12 @@ export function LoginForm({
                   {capsLockOn ? (
                     <FieldDescription>Caps Lock está ativo</FieldDescription>
                   ) : null}
+                  <Link
+                    to={ROUTES.FORGOT_PASSWORD}
+                    className='text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline'
+                  >
+                    Esqueceu a senha?
+                  </Link>
                 </Field>
                 <Field>
                   <Button type='submit' disabled={isLoading || !canSubmitLogin}>

@@ -8,3 +8,4 @@ const host = env.HOST === '0.0.0.0' ? '::' : env.HOST;
 app.listen({ host, port: +env.PORT }).then(() => {
   console.log('Server running!', `${host}:${env.PORT}`);
 });
+

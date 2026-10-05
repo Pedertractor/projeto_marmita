@@ -10,6 +10,11 @@ const envSchema = z.object({
   APPNAME: z.string().default(''),
   APPKEY: z.string().default(''),
   API_PEDERTRACTOR_URL: z.string().default(''),
+  CORREIO: z.string().min(1, 'CORREIO é obrigatório'),
+  PORT_CORREIO: z.string().default('587'),
+  EMAIL_AUTOMACAO: z.string().min(1, 'EMAIL_AUTOMACAO é obrigatório'),
+  PASSWORD_AUTOMACAO: z.string().min(1, 'PASSWORD_AUTOMACAO é obrigatório'),
+  FRONT_END_URL: z.string().default('http://localhost:5173'),
 });
 
 const _env = envSchema.safeParse(process.env);

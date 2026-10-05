@@ -9,6 +9,11 @@ import {
 import { CompanyPrismaRepository } from '../repositories/prisma/company-repository.js';
 import { RestaurantPrismaRepository } from '../repositories/prisma/restaurant-repository.js';
 import { $Enums } from '../generated/prisma/client.js';
+import {
+  randomEmailChallengeDueAt,
+  toEmailChallengePublic,
+  needsEmailChallenge,
+} from '../lib/email-challenge.js';
 
 export type RegisterUserInput = {
   email: string;
@@ -122,6 +127,10 @@ export class UserService {
         input.role === $Enums.UserRole.RESTAURANT
           ? (input.restaurantId ?? null)
           : null,
+      emailChallengeDueAt:
+        input.role === $Enums.UserRole.REQUESTER
+          ? randomEmailChallengeDueAt()
+          : null,
     });
   }
 
@@ -212,6 +221,7 @@ export class UserService {
       ...serializeUser(user),
       company: user.company,
       restaurant: user.restaurant,
+      ...toEmailChallengePublic(user),
     };
   }
 
@@ -220,6 +230,7 @@ export class UserService {
     role: $Enums.UserRole;
     active: boolean;
     mustChangePassword: boolean;
+    needsEmailChallenge: boolean;
   }> {
     const userRepository = new UserPrismaRepository(prisma);
     const user = await userRepository.findById(userId);
@@ -232,6 +243,7 @@ export class UserService {
       role: user.role,
       active: user.active,
       mustChangePassword: user.mustChangePassword,
+      needsEmailChallenge: needsEmailChallenge(user),
     };
   }
 

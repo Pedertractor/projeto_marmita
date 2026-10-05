@@ -26,6 +26,10 @@ export interface Menu {
   restaurantId: string;
   date: string;
   items: MenuItem[];
+  createdById?: string | null;
+  updatedById?: string | null;
+  createdBy?: { id: string; name: string } | null;
+  updatedBy?: { id: string; name: string } | null;
   createdAt?: string;
   updatedAt?: string;
 }

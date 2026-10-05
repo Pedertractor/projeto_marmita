@@ -82,10 +82,18 @@ model User {
   cardNumber         String?
   unit               Unit?
   role               UserRole
-  active             Boolean  @default(true)
-  mustChangePassword Boolean  @default(true)
-  companyId          String?
-  restaurantId       String?
+  active                  Boolean   @default(true)
+  mustChangePassword      Boolean   @default(true)
+  emailChallengeDueAt     DateTime?
+  emailVerifiedAt         DateTime?
+  emailChallengeCodeHash  String?
+  emailChallengeExpiresAt DateTime?
+  emailChallengeSentAt    DateTime?
+  passwordResetCodeHash   String?
+  passwordResetExpiresAt  DateTime?
+  passwordResetSentAt     DateTime?
+  companyId               String?
+  restaurantId            String?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
@@ -96,6 +104,8 @@ model User {
   statusChanges           OrderStatusHistory[]
   auditLogs               AuditLog[]
   reviewedRegistrations   RegistrationRequest[] @relation("RegistrationReviewer")
+  menusCreated            Menu[]                @relation("MenuCreatedBy")
+  menusUpdated            Menu[]                @relation("MenuUpdatedBy")
 
   @@unique([cardNumber, unit])
   @@index([role])
@@ -108,16 +118,22 @@ model Menu {
   id           String   @id @default(uuid())
   restaurantId String
   date         DateTime @db.Date
+  createdById  String?
+  updatedById  String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   restaurant Restaurant @relation(fields: [restaurantId], references: [id])
+  createdBy  User?      @relation("MenuCreatedBy", fields: [createdById], references: [id])
+  updatedBy  User?      @relation("MenuUpdatedBy", fields: [updatedById], references: [id])
   items      MenuItem[]
   orders     Order[]
 
   @@unique([restaurantId, date])
   @@index([date])
   @@index([restaurantId])
+  @@index([createdById])
+  @@index([updatedById])
 }
 
 model MenuItem {

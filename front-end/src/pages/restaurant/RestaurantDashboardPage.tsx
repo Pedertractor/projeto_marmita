@@ -1,14 +1,22 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { BookOpen } from 'lucide-react';
 import { dashboardApi } from '@/services/dashboard';
+import { menusApi } from '@/services/menus';
 import { ordersApi } from '@/services/orders';
-import { adminOrderPath } from '@/routes/constants';
-import { parseISODateLocal, todayISODate, toISODate } from '@/utils/format';
+import { adminOrderPath, ROUTES } from '@/routes/constants';
+import {
+  formatDate,
+  parseISODateLocal,
+  todayISODate,
+  toISODate,
+} from '@/utils/format';
 import { DatePicker } from '@/components/ui/date-picker';
 import { orderStatusLabel } from '@/utils/status-labels';
 import type { OrderStatus } from '@/types/domain';
 import { OrderStatusBadge } from '@/components/OrderStatusBadge';
+import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
   Card,
@@ -34,10 +42,18 @@ export function RestaurantDashboardPage() {
     queryFn: () => dashboardApi.restaurant({ menuDate }),
   });
 
+  const { data: menu, isLoading: menuLoading } = useQuery({
+    queryKey: ['menu', menuDate],
+    queryFn: () => menusApi.getByDate(menuDate),
+  });
+
   const { data: orders = [] } = useQuery({
     queryKey: ['orders', 'restaurant', menuDate],
     queryFn: () => ordersApi.list({ menuDate }),
   });
+
+  const menuMissing = !menuLoading && menu === null;
+  const isToday = menuDate === todayISODate();
 
   const counts = Object.fromEntries(
     (stats?.byStatus ?? []).map((r) => [r.status, r]),
@@ -58,7 +74,7 @@ export function RestaurantDashboardPage() {
         <div>
           <h1 className='text-2xl font-semibold'>Operação do restaurante</h1>
         </div>
-        <div className='space-y-1'>
+        <div className='flex flex-col gap-1'>
           <Label htmlFor='menuDate'>Data</Label>
           <DatePicker
             id='menuDate'
@@ -69,6 +85,38 @@ export function RestaurantDashboardPage() {
           />
         </div>
       </div>
+
+      {menuMissing ? (
+        <div className='relative overflow-hidden rounded-2xl bg-amber-50 ring-1 ring-amber-200/80'>
+          <img
+            src='/tigela_waiting.png'
+            alt=''
+            aria-hidden
+            draggable={false}
+            className='pointer-events-none absolute top-0 -right-1 z-0 h-16 w-auto max-w-[28%] object-contain object-right select-none sm:h-[4.5rem]'
+          />
+          <div className='relative z-10 flex flex-col gap-2 px-4 py-2.5 pr-[30%] sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:pr-28'>
+            <div className='min-w-0 space-y-0.5'>
+              <p className='text-sm font-semibold leading-snug text-amber-950'>
+                {isToday
+                  ? 'Cardápio de hoje ainda não foi lançado'
+                  : `Cardápio de ${formatDate(menuDate)} ainda não foi lançado`}
+              </p>
+              <p className='text-xs leading-snug text-amber-900/75'>
+                {isToday
+                  ? 'Os solicitantes já podem estar aguardando. Publique o cardápio o quanto antes para liberar os pedidos.'
+                  : 'Publique o cardápio desta data para que os solicitantes consigam fazer pedidos.'}
+              </p>
+            </div>
+            <Button asChild size='sm' className='shrink-0 self-start sm:self-center'>
+              <Link to={`${ROUTES.MENU_EDIT}?date=${menuDate}`}>
+                <BookOpen className='mr-1.5 size-3.5' />
+                Lançar cardápio
+              </Link>
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       {isLoading ? (
         <p className='text-sm text-muted-foreground'>Carregando…</p>

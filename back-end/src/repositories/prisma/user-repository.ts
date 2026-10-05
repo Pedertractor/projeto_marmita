@@ -15,6 +15,7 @@ const userSafeSelect = {
   role: true,
   active: true,
   mustChangePassword: true,
+  emailChallengeDueAt: true,
   companyId: true,
   restaurantId: true,
   createdAt: true,
@@ -111,6 +112,7 @@ export class UserPrismaRepository {
     phone?: string | null;
     cardNumber?: string | null;
     unit?: $Enums.Unit | null;
+    emailChallengeDueAt?: Date | null;
   }): Promise<UserWithoutPassword> {
     return this.prisma.user.create({
       data: {
@@ -125,6 +127,7 @@ export class UserPrismaRepository {
         phone: data.phone ?? null,
         cardNumber: data.cardNumber ?? null,
         unit: data.unit ?? null,
+        emailChallengeDueAt: data.emailChallengeDueAt ?? null,
       },
       select: userSafeSelect,
     });
@@ -183,6 +186,165 @@ export class UserPrismaRepository {
       this.prisma.mealPrice.count({ where: { createdById: userId } }),
     ]);
     return { orders, statusChanges, mealPrices };
+  }
+
+  async findEmailChallenge(userId: string) {
+    return this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        emailChallengeDueAt: true,
+        emailChallengeCodeHash: true,
+        emailChallengeExpiresAt: true,
+        emailChallengeSentAt: true,
+      },
+    });
+  }
+
+  async saveEmailChallengeCode(
+    userId: string,
+    data: {
+      emailChallengeCodeHash: string;
+      emailChallengeExpiresAt: Date;
+      emailChallengeSentAt: Date;
+    },
+  ) {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data,
+    });
+  }
+
+  async clearEmailChallengeCode(userId: string) {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        emailChallengeCodeHash: null,
+        emailChallengeExpiresAt: null,
+        emailChallengeSentAt: null,
+      },
+    });
+  }
+
+  async completeEmailChallenge(userId: string, emailChallengeDueAt: Date) {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        emailVerifiedAt: new Date(),
+        emailChallengeDueAt,
+        emailChallengeCodeHash: null,
+        emailChallengeExpiresAt: null,
+        emailChallengeSentAt: null,
+      },
+    });
+  }
+
+  async markEmailChallengeDue(userId: string, dueAt: Date) {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { emailChallengeDueAt: dueAt },
+    });
+  }
+
+  async updateEmail(userId: string, email: string) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        email,
+        emailVerifiedAt: null,
+        emailChallengeDueAt: new Date(),
+        emailChallengeCodeHash: null,
+        emailChallengeExpiresAt: null,
+        emailChallengeSentAt: null,
+      },
+      select: userSafeSelect,
+    });
+  }
+
+  async findPasswordReset(userId: string) {
+    return this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        active: true,
+        passwordResetCodeHash: true,
+        passwordResetExpiresAt: true,
+        passwordResetSentAt: true,
+      },
+    });
+  }
+
+  async findPasswordResetByEmail(email: string) {
+    return this.prisma.user.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        active: true,
+        passwordResetCodeHash: true,
+        passwordResetExpiresAt: true,
+        passwordResetSentAt: true,
+      },
+    });
+  }
+
+  async findPasswordResetByTokenHash(tokenHash: string) {
+    return this.prisma.user.findFirst({
+      where: { passwordResetCodeHash: tokenHash },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        active: true,
+        passwordResetCodeHash: true,
+        passwordResetExpiresAt: true,
+        passwordResetSentAt: true,
+      },
+    });
+  }
+
+  async savePasswordResetCode(
+    userId: string,
+    data: {
+      passwordResetCodeHash: string;
+      passwordResetExpiresAt: Date;
+      passwordResetSentAt: Date;
+    },
+  ) {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data,
+    });
+  }
+
+  async clearPasswordReset(userId: string) {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        passwordResetCodeHash: null,
+        passwordResetExpiresAt: null,
+        passwordResetSentAt: null,
+      },
+    });
+  }
+
+  async completePasswordReset(userId: string, passwordHash: string) {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        passwordHash,
+        mustChangePassword: false,
+        passwordResetCodeHash: null,
+        passwordResetExpiresAt: null,
+        passwordResetSentAt: null,
+      },
+    });
   }
 
   async deleteById(userId: string): Promise<void> {

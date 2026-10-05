@@ -8,11 +8,14 @@ import { orderFulfillmentLabel } from '@/utils/status-labels';
 import { OrderStatusBadge } from '@/components/OrderStatusBadge';
 import { Button } from '@/components/ui/button';
 
+const RECENT_ORDERS_LIMIT = 5;
+
 export function MyOrdersPage() {
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ['orders', 'mine'],
     queryFn: () => ordersApi.list(),
   });
+  const recentOrders = orders.slice(0, RECENT_ORDERS_LIMIT);
 
   return (
     <div className='space-y-4'>
@@ -28,11 +31,11 @@ export function MyOrdersPage() {
 
       {isLoading ? (
         <p className='text-sm text-muted-foreground'>Carregando…</p>
-      ) : orders.length === 0 ? (
+      ) : recentOrders.length === 0 ? (
         <p className='text-sm text-muted-foreground'>Nenhum pedido encontrado.</p>
       ) : (
         <ul className='space-y-2'>
-          {orders.map((order) => (
+          {recentOrders.map((order) => (
             <li key={order.id}>
               <Link
                 to={

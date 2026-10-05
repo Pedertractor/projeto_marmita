@@ -5,6 +5,8 @@ export const ROUTES = {
   HOME: '/',
   LOGIN: '/login',
   REGISTER: '/cadastro',
+  FORGOT_PASSWORD: '/esqueci-senha',
+  RESET_PASSWORD: '/redefinir-senha',
   PROFILE: '/perfil',
 
   REQUESTER_HOME: '/app',

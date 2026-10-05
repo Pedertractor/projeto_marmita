@@ -1,5 +1,7 @@
 import z from 'zod';
 import type { FastifyReply, FastifyRequest } from 'fastify';
+import { EmailChallengeService } from '../../services/email-challenge-service.js';
+import { PasswordResetService } from '../../services/password-reset-service.js';
 import { UserService } from '../../services/user-service.js';
 import { HttpError } from '../errors/index.js';
 import { $Enums } from '../../generated/prisma/client.js';
@@ -235,4 +237,96 @@ export async function deleteUserByAdmin(
     userId,
   );
   return reply.status(200).send(result);
+}
+
+export async function sendEmailChallenge(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  const emailChallengeService = new EmailChallengeService();
+  const result = await emailChallengeService.send(request.user.sub);
+  return reply.status(200).send(result);
+}
+
+export async function verifyEmailChallenge(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  const bodySchema = z.object({
+    code: z.string().regex(/^\d{6}$/, 'Informe o código de 6 dígitos'),
+  });
+  const { code } = bodySchema.parse(request.body);
+  const emailChallengeService = new EmailChallengeService();
+  await emailChallengeService.verify(request.user.sub, code);
+  const userService = new UserService();
+  const user = await userService.getMe(request.user.sub);
+  return reply.status(200).send({ user });
+}
+
+export async function forceEmailChallenge(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  const emailChallengeService = new EmailChallengeService();
+  const result = await emailChallengeService.force(request.user.sub);
+  const userService = new UserService();
+  const user = await userService.getMe(request.user.sub);
+  return reply.status(200).send({ user, ...result });
+}
+
+export async function updateMyEmail(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  const bodySchema = z.object({
+    email: z.email('E-mail inválido'),
+  });
+  const { email } = bodySchema.parse(request.body);
+  const emailChallengeService = new EmailChallengeService();
+  await emailChallengeService.updateEmail(request.user.sub, email);
+  const userService = new UserService();
+  const user = await userService.getMe(request.user.sub);
+  return reply.status(200).send({ user });
+}
+
+export async function forgotPassword(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  const bodySchema = z.object({
+    email: z.email('E-mail inválido'),
+  });
+  const { email } = bodySchema.parse(request.body);
+  const passwordResetService = new PasswordResetService();
+  const result = await passwordResetService.request(email);
+  return reply.status(200).send(result);
+}
+
+export async function previewPasswordReset(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  const querySchema = z.object({
+    token: z.string().min(1, 'Link inválido'),
+  });
+  const { token } = querySchema.parse(request.query);
+  const passwordResetService = new PasswordResetService();
+  const result = await passwordResetService.preview(token);
+  return reply.status(200).send(result);
+}
+
+export async function resetPasswordWithCode(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  const bodySchema = z.object({
+    token: z.string().min(1, 'Link inválido'),
+    newPassword: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
+  });
+  const body = bodySchema.parse(request.body);
+  const passwordResetService = new PasswordResetService();
+  await passwordResetService.reset(body);
+  return reply.status(200).send({
+    message: 'Senha redefinida com sucesso. Faça login com a nova senha.',
+  });
 }

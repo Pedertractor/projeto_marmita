@@ -25,7 +25,7 @@ const TIPS: Tip[] = [
     id: 'quantidade',
     image: '/illustrations/best-practices/tip-quantidade.png',
     title: 'Peça só o necessário',
-    text: 'Solicite a quantidade de marmitas que você vai usar, sem exagero.',
+    text: 'Solicite a quantidade de marmitas que serão consumidas.',
   },
 ];
 

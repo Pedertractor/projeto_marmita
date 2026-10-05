@@ -2,6 +2,7 @@ import 'dotenv/config';
 import bcrypt from 'bcrypt';
 import { $Enums, Prisma } from '../src/generated/prisma/client.js';
 import { prisma } from '../src/lib/prisma.js';
+import { randomEmailChallengeDueAt } from '../src/lib/email-challenge.js';
 
 function todayDateOnly(): Date {
   const now = new Date();
@@ -56,6 +57,10 @@ async function upsertUser(data: {
       companyId: data.companyId ?? null,
       restaurantId: data.restaurantId ?? null,
       phone: data.phone ?? null,
+      emailChallengeDueAt:
+        data.role === $Enums.UserRole.REQUESTER
+          ? randomEmailChallengeDueAt()
+          : null,
     },
     update: {
       name: data.name,
@@ -125,7 +130,7 @@ async function main() {
     role: $Enums.UserRole.RH,
   });
 
-  await upsertUser({
+  const restaurantUser = await upsertUser({
     email: 'restaurante@marmita.local',
     name: 'Operador Restaurante',
     password: 'rest123',
@@ -190,6 +195,8 @@ async function main() {
       data: {
         restaurantId: restaurant.id,
         date: menuDate,
+        createdById: restaurantUser.id,
+        updatedById: restaurantUser.id,
         items: {
           create: itemNames.map((item, index) => ({
             name: item.name,

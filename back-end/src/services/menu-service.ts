@@ -74,6 +74,7 @@ export class MenuService {
     const menu = await repo.upsertWithItems({
       restaurantId,
       date,
+      actingUserId,
       items: input.items.map((item, index) => ({
         name: item.name.trim(),
         description: item.description?.trim() || null,

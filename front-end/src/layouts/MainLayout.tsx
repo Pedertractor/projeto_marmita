@@ -1,6 +1,7 @@
 import { matchPath, Outlet, useLocation } from 'react-router-dom';
 
 import { AppSidebar } from '@/components/app-sidebar';
+import { EmailChallengeDialog } from '@/components/email-challenge-dialog';
 import { RestaurantOrderChat } from '@/components/restaurant-order-chat';
 import {
   SidebarInset,
@@ -26,19 +27,20 @@ export function MainLayout() {
     user?.role === 'RESTAURANT' || user?.role === 'SUPER_ADMIN';
 
   return (
-    <SidebarProvider defaultOpen={false}>
+    <SidebarProvider defaultOpen={false} className='h-svh overflow-hidden'>
       <AppSidebar />
-      <SidebarInset className='min-w-0 bg-transparent'>
+      <SidebarInset className='min-h-0 min-w-0 overflow-hidden bg-transparent'>
         {hideChromeHeader ? null : (
           <header className='flex h-12 shrink-0 items-center px-4 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-10'>
             <SidebarTrigger className='-ml-1' />
           </header>
         )}
-        <div className='flex min-h-0 min-w-0 flex-1 flex-col gap-4 p-4 pt-0'>
+        <div className='flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-auto p-4 pt-0'>
           <Outlet />
         </div>
       </SidebarInset>
       {showRestaurantChat ? <RestaurantOrderChat /> : null}
+      {user?.role === 'REQUESTER' ? <EmailChallengeDialog /> : null}
     </SidebarProvider>
   );
 }

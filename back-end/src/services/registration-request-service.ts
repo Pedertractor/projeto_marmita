@@ -8,6 +8,7 @@ import { MealPricePrismaRepository } from '../repositories/prisma/meal-price-rep
 import { RegistrationRequestPrismaRepository } from '../repositories/prisma/registration-request-repository.js';
 import { UserPrismaRepository } from '../repositories/prisma/user-repository.js';
 import { syntheticEmailForCard } from '../lib/internal-user-email.js';
+import { randomEmailChallengeDueAt } from '../lib/email-challenge.js';
 import { AuditLogService } from './audit-log-service.js';
 
 const KIND_TO_UNIT: Record<
@@ -360,6 +361,7 @@ export class RegistrationRequestService {
         phone: raw.phone,
         cardNumber: raw.cardNumber,
         unit: raw.unit,
+        emailChallengeDueAt: randomEmailChallengeDueAt(),
       });
 
       const reviewed = await regRepo.markReviewed(requestId, {

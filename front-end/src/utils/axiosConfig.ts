@@ -52,7 +52,12 @@ function applyErrorInterceptor(api: AxiosInstance) {
       if (error.response) {
         status = error.response.status;
         const apiMessage = error.response.data?.error;
-        if (
+        const isEmailChallengeBlock =
+          status === 403 &&
+          apiMessage?.includes('Verifique seu e-mail');
+        if (isEmailChallengeBlock) {
+          message = apiMessage?.trim() || 'Verifique seu e-mail para continuar';
+        } else if (
           status === 401 &&
           error.response.data.error !== 'Credenciais inválidas'
         ) {
@@ -70,7 +75,9 @@ function applyErrorInterceptor(api: AxiosInstance) {
       } else {
         message = 'Erro ao conectar com o servidor, tente novamente.';
       }
-      if (!error.config?.skipErrorToast) {
+      const isEmailChallengeBlock =
+        status === 403 && message.includes('Verifique seu e-mail');
+      if (!error.config?.skipErrorToast && !isEmailChallengeBlock) {
         toast.error(message);
       }
       return Promise.reject({ message, status });
