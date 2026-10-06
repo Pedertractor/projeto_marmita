@@ -1,5 +1,8 @@
 import { $Enums, Prisma } from '../generated/prisma/client.js';
-import { canTransitionStatus } from '../constants/order-status.js';
+import {
+  canTransitionStatus,
+  ORDER_EDIT_WINDOW_MS,
+} from '../constants/order-status.js';
 import { HttpError } from '../https/errors/index.js';
 import { prisma } from '../lib/prisma.js';
 import { MealPricePrismaRepository } from '../repositories/prisma/meal-price-repository.js';
@@ -297,6 +300,14 @@ export class OrderService {
       throw new HttpError('Sem permissão para editar este pedido', 403);
     }
 
+    if (existing.status === $Enums.OrderStatus.ACCEPTED) {
+      throw new HttpError('Pedido em preparo não pode ser editado', 400);
+    }
+
+    if (existing.status === $Enums.OrderStatus.READY) {
+      throw new HttpError('Pedido já finalizado não pode ser editado', 400);
+    }
+
     if (
       existing.status !== $Enums.OrderStatus.SUBMITTED &&
       existing.status !== $Enums.OrderStatus.DRAFT
@@ -314,7 +325,7 @@ export class OrderService {
           .find((entry) => entry.toStatus === $Enums.OrderStatus.SUBMITTED)
           ?.createdAt ?? existing.createdAt;
       const elapsedMs = Date.now() - new Date(submittedAt).getTime();
-      if (elapsedMs > 5 * 60 * 1000) {
+      if (elapsedMs > ORDER_EDIT_WINDOW_MS) {
         throw new HttpError(
           'O prazo de 5 minutos para editar o pedido expirou',
           400,

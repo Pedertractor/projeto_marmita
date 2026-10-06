@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { BookOpen } from 'lucide-react';
+import { BookOpen, ShoppingBag, Truck } from 'lucide-react';
 import { dashboardApi } from '@/services/dashboard';
 import { menusApi } from '@/services/menus';
 import { ordersApi } from '@/services/orders';
@@ -13,8 +13,9 @@ import {
   toISODate,
 } from '@/utils/format';
 import { DatePicker } from '@/components/ui/date-picker';
-import { orderStatusLabel } from '@/utils/status-labels';
-import type { OrderStatus } from '@/types/domain';
+import { orderFulfillmentLabel, orderStatusLabel } from '@/utils/status-labels';
+import type { OrderFulfillmentType, OrderStatus } from '@/types/domain';
+import { cn } from '@/lib/utils';
 import { OrderStatusBadge } from '@/components/OrderStatusBadge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -27,6 +28,23 @@ import {
 } from '@/components/ui/card';
 
 const ACTIVE: OrderStatus[] = ['SUBMITTED', 'ACCEPTED', 'READY'];
+
+function FulfillmentLabel({
+  type,
+  className,
+}: {
+  type?: OrderFulfillmentType | null;
+  className?: string;
+}) {
+  if (!type) return null;
+  const Icon = type === 'DELIVERY' ? Truck : ShoppingBag;
+  return (
+    <span className={cn('inline-flex items-center gap-1', className)}>
+      <Icon className='size-3.5 shrink-0' aria-hidden />
+      {orderFulfillmentLabel(type)}
+    </span>
+  );
+}
 
 const STATUS_MASCOT: Partial<Record<OrderStatus, string>> = {
   SUBMITTED: '/tigela_waiting.png',
@@ -182,7 +200,13 @@ export function RestaurantDashboardPage() {
                   <p className='font-medium'>
                     {order.companyName} · {order.quantity} marmitas
                   </p>
-                  <p className='text-muted-foreground'>{order.requesterName}</p>
+                  <p className='flex items-center gap-1.5 text-muted-foreground'>
+                    <FulfillmentLabel type={order.fulfillmentType} />
+                    {order.fulfillmentType ? (
+                      <span aria-hidden>·</span>
+                    ) : null}
+                    <span>{order.requesterName}</span>
+                  </p>
                 </div>
                 <OrderStatusBadge status={order.status} />
               </Link>

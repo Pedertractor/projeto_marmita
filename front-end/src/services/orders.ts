@@ -43,10 +43,15 @@ export const ordersApi = {
     return data.order;
   },
 
-  async update(orderId: string, payload: CreateOrderPayload): Promise<Order> {
+  async update(
+    orderId: string,
+    payload: CreateOrderPayload,
+    options?: { skipErrorToast?: boolean },
+  ): Promise<Order> {
     const { data } = await api.put<{ order: Order }>(
       `${BASE}/${orderId}`,
       payload,
+      { skipErrorToast: options?.skipErrorToast },
     );
     return data.order;
   },

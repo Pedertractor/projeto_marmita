@@ -35,12 +35,58 @@ export function getOrderSubmittedAt(
   return Number.isNaN(fallback.getTime()) ? null : fallback;
 }
 
-/** Pedidos SUBMITTED só podem ser editados nos primeiros 5 minutos após o envio. */
-export function canEditSubmittedOrder(
+export type RequesterEditBlockReason =
+  | 'accepted'
+  | 'ready'
+  | 'expired'
+  | 'not_editable';
+
+/** Motivo pelo qual o solicitante não pode editar; null se ainda puder. */
+export function getRequesterEditBlockReason(
+  order: Pick<Order, 'status' | 'createdAt' | 'statusHistory'>,
+  now = new Date(),
+): RequesterEditBlockReason | null {
+  if (order.status === 'ACCEPTED') return 'accepted';
+  if (order.status === 'READY') return 'ready';
+  if (order.status !== 'SUBMITTED') return 'not_editable';
+  if (getOrderEditRemainingMs(order, now) <= 0) return 'expired';
+  return null;
+}
+
+export function requesterEditBlockMessage(
+  reason: RequesterEditBlockReason,
+): string {
+  switch (reason) {
+    case 'accepted':
+      return 'O restaurante já iniciou o preparo; o pedido não pode mais ser editado.';
+    case 'ready':
+      return 'O pedido já está pronto e não pode mais ser editado.';
+    case 'expired':
+      return 'O prazo de 5 minutos para editar o pedido expirou.';
+    case 'not_editable':
+      return 'Só é possível editar pedidos enviados.';
+  }
+}
+
+/** Solicitante só edita pedido enviado, e apenas dentro da janela de 5 minutos. */
+export function canRequesterEditOrder(
   order: Pick<Order, 'status' | 'createdAt' | 'statusHistory'>,
   now = new Date(),
 ): boolean {
-  return getOrderEditRemainingMs(order, now) > 0;
+  return getRequesterEditBlockReason(order, now) === null;
+}
+
+/** Converte a mensagem da API na mesma frase mostrada na interface. */
+export function requesterEditBlockMessageFromApi(
+  apiMessage: string,
+): string | null {
+  const text = apiMessage.toLowerCase();
+  if (text.includes('em preparo')) return requesterEditBlockMessage('accepted');
+  if (text.includes('finalizado')) return requesterEditBlockMessage('ready');
+  if (text.includes('expirou') || text.includes('5 minutos')) {
+    return requesterEditBlockMessage('expired');
+  }
+  return null;
 }
 
 /** Tempo restante (ms) da janela de edição; 0 se não puder editar. */

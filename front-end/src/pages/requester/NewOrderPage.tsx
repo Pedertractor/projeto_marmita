@@ -27,7 +27,12 @@ import { ordersApi } from '@/services/orders';
 import { ROUTES, requesterOrderPath } from '@/routes/constants';
 import { todayISODate } from '@/utils/format';
 import { generateOrderCode } from '@/utils/order-code';
-import { canEditSubmittedOrder } from '@/utils/order-status';
+import {
+  canRequesterEditOrder,
+  getRequesterEditBlockReason,
+  requesterEditBlockMessage,
+  requesterEditBlockMessageFromApi,
+} from '@/utils/order-status';
 import type { OrderFulfillmentType } from '@/types/domain';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -86,6 +91,8 @@ export function NewOrderPage({ editMode = false }: { editMode?: boolean }) {
   const [showScrollHint, setShowScrollHint] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const mealCheckTimersRef = useRef<number[]>([]);
+  const editBlockedRef = useRef(false);
+  const [now, setNow] = useState(() => Date.now());
 
   const { data: menu, isLoading: menuLoading } = useQuery({
     queryKey: ['menu', today],
@@ -96,6 +103,9 @@ export function NewOrderPage({ editMode = false }: { editMode?: boolean }) {
     queryKey: ['order', orderId],
     queryFn: () => ordersApi.getById(orderId!),
     enabled: Boolean(orderId),
+    refetchOnWindowFocus: editMode,
+    refetchInterval: (query) =>
+      editMode && query.state.data?.status === 'SUBMITTED' ? 4_000 : false,
   });
 
   useEffect(() => {
@@ -103,19 +113,37 @@ export function NewOrderPage({ editMode = false }: { editMode?: boolean }) {
   }, [menu?.id]);
 
   useEffect(() => {
+    if (!editMode || !existing || existing.status !== 'SUBMITTED') return;
+    if (!canRequesterEditOrder(existing)) return;
+
+    const timer = window.setInterval(() => {
+      if (!canRequesterEditOrder(existing)) {
+        setNow(Date.now());
+        window.clearInterval(timer);
+      }
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [editMode, existing]);
+
+  useEffect(() => {
+    if (!editMode || !existing || editBlockedRef.current) return;
+    if (canRequesterEditOrder(existing, new Date(now))) return;
+
+    editBlockedRef.current = true;
+    const reason = getRequesterEditBlockReason(existing, new Date(now));
+    toast.error(
+      reason
+        ? requesterEditBlockMessage(reason)
+        : requesterEditBlockMessage('not_editable'),
+    );
+    navigate(requesterOrderPath(existing.id), { replace: true });
+  }, [editMode, existing, navigate, now]);
+
+  useEffect(() => {
     if (isLocalNew || !existing || hydrated) return;
 
-    if (editMode && existing.status !== 'SUBMITTED') {
-      toast.error('Só é possível editar pedidos enviados.');
-      navigate(requesterOrderPath(existing.id), { replace: true });
-      return;
-    }
-
-    if (editMode && !canEditSubmittedOrder(existing)) {
-      toast.error('O prazo de 5 minutos para editar o pedido expirou.');
-      navigate(requesterOrderPath(existing.id), { replace: true });
-      return;
-    }
+    if (editMode && !canRequesterEditOrder(existing)) return;
 
     if (!editMode && existing.status !== 'DRAFT') {
       navigate(requesterOrderPath(existing.id), { replace: true });
@@ -247,7 +275,9 @@ export function NewOrderPage({ editMode = false }: { editMode?: boolean }) {
         }
       }
       if (!orderId) throw new Error('Pedido indisponível');
-      await ordersApi.update(orderId, payload);
+      await ordersApi.update(orderId, payload, {
+        skipErrorToast: editMode,
+      });
       if (editMode) {
         return ordersApi.getById(orderId);
       }
@@ -261,12 +291,30 @@ export function NewOrderPage({ editMode = false }: { editMode?: boolean }) {
         navigate(requesterOrderPath(order.id));
       }, SUCCESS_DURATION_MS);
     },
-    onError: () => {
-      toast.error(
-        editMode
-          ? 'Não foi possível salvar as alterações.'
-          : 'Não foi possível enviar o pedido. Confira os dados.',
-      );
+    onError: (err: unknown) => {
+      const apiMessage =
+        err &&
+        typeof err === 'object' &&
+        'message' in err &&
+        typeof err.message === 'string'
+          ? err.message
+          : '';
+      if (editMode) {
+        const blocked = requesterEditBlockMessageFromApi(apiMessage);
+        if (blocked) {
+          if (!editBlockedRef.current) {
+            toast.error(blocked);
+          }
+          editBlockedRef.current = true;
+          if (orderId) {
+            navigate(requesterOrderPath(orderId), { replace: true });
+          }
+          return;
+        }
+        toast.error('Não foi possível salvar as alterações.');
+        return;
+      }
+      toast.error('Não foi possível enviar o pedido. Confira os dados.');
     },
   });
 

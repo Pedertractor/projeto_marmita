@@ -25,7 +25,7 @@ import {
 } from '@/routes/constants';
 import { formatDate, formatDateTime } from '@/utils/format';
 import {
-  canEditSubmittedOrder,
+  canRequesterEditOrder,
   formatEditCountdown,
   getOrderEditRemainingMs,
 } from '@/utils/order-status';
@@ -59,6 +59,9 @@ export function RequesterOrderDetailPage() {
     queryKey: ['order', orderId],
     queryFn: () => ordersApi.getById(orderId!),
     enabled: Boolean(orderId),
+    refetchOnWindowFocus: true,
+    refetchInterval: (query) =>
+      query.state.data?.status === 'SUBMITTED' ? 4_000 : false,
   });
 
   const menuDate = order?.menuDate?.slice(0, 10);
@@ -105,7 +108,7 @@ export function RequesterOrderDetailPage() {
   }
 
   const editRemainingMs = getOrderEditRemainingMs(order, new Date(now));
-  const canEdit = canEditSubmittedOrder(order, new Date(now));
+  const canEdit = canRequesterEditOrder(order, new Date(now));
   const showEditButton = order.status === 'SUBMITTED';
 
   return (
