@@ -244,8 +244,8 @@ function EditUserFormBody({
           <AlertDialogHeader>
             <AlertDialogTitle>Resetar senha?</AlertDialogTitle>
             <AlertDialogDescription>
-              A senha será redefinida para <strong>123</strong>. No próximo
-              login, o usuário precisará definir uma nova senha.
+              A senha será substituída por uma senha temporária aleatória. No
+              próximo login, o usuário precisará definir uma nova senha.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

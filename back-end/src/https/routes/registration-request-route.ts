@@ -10,11 +10,13 @@ import {
 import { $Enums } from '../../generated/prisma/client.js';
 import { authMiddleware } from '../../middlewares/auth-middleware.js';
 import { roleMiddleware } from '../../middlewares/auth-role-middleware.js';
+import { registrationRateLimit } from '../rate-limits.js';
 
 export async function registrationRequestRoutes(app: FastifyInstance) {
   app.post(
     '/check-availability',
     {
+      config: { rateLimit: registrationRateLimit },
       schema: {
         tags: ['registration-requests'],
         summary: 'Verificar se e-mail pode ser usado no cadastro',
@@ -33,6 +35,7 @@ export async function registrationRequestRoutes(app: FastifyInstance) {
   app.post(
     '/validate-employee',
     {
+      config: { rateLimit: registrationRateLimit },
       schema: {
         tags: ['registration-requests'],
         summary: 'Validar colaborador PEDERTRACTOR/TRACTOR na API base',
@@ -52,6 +55,7 @@ export async function registrationRequestRoutes(app: FastifyInstance) {
   app.post(
     '/',
     {
+      config: { rateLimit: registrationRateLimit },
       schema: {
         tags: ['registration-requests'],
         summary: 'Solicitar cadastro público (aguarda RH)',
@@ -62,7 +66,7 @@ export async function registrationRequestRoutes(app: FastifyInstance) {
             name: { type: 'string' },
             email: { type: 'string', format: 'email' },
             phone: { type: 'string' },
-            password: { type: 'string', minLength: 6 },
+            password: { type: 'string', minLength: 8 },
             companyKind: {
               type: 'string',
               enum: ['PEDERTRACTOR', 'TRACTOR', 'OTHER'],

@@ -18,8 +18,13 @@ import {
   deleteUserByAdmin,
 } from '../controllers/user-controller.js';
 import { $Enums } from '../../generated/prisma/client.js';
+import { env } from '../../env/index.js';
 import { authMiddleware } from '../../middlewares/auth-middleware.js';
 import { roleMiddleware } from '../../middlewares/auth-role-middleware.js';
+import {
+  loginRateLimit,
+  sensitivePublicRateLimit,
+} from '../rate-limits.js';
 
 const userRoleEnum = [
   'SUPER_ADMIN',
@@ -39,6 +44,7 @@ export async function userRoutes(app: FastifyInstance) {
   app.post(
     '/login',
     {
+      config: { rateLimit: loginRateLimit },
       schema: {
         tags: ['users'],
         summary: 'Login',
@@ -70,6 +76,7 @@ export async function userRoutes(app: FastifyInstance) {
   app.post(
     '/forgot-password',
     {
+      config: { rateLimit: sensitivePublicRateLimit },
       schema: {
         tags: ['users'],
         summary: 'Solicitar código para redefinir senha',
@@ -88,6 +95,7 @@ export async function userRoutes(app: FastifyInstance) {
   app.get(
     '/reset-password/preview',
     {
+      config: { rateLimit: sensitivePublicRateLimit },
       schema: {
         tags: ['users'],
         summary: 'Pré-visualizar usuário do magic link de redefinição',
@@ -106,6 +114,7 @@ export async function userRoutes(app: FastifyInstance) {
   app.post(
     '/reset-password',
     {
+      config: { rateLimit: sensitivePublicRateLimit },
       schema: {
         tags: ['users'],
         summary: 'Redefinir senha com token do magic link',
@@ -114,7 +123,7 @@ export async function userRoutes(app: FastifyInstance) {
           required: ['token', 'newPassword'],
           properties: {
             token: { type: 'string' },
-            newPassword: { type: 'string', minLength: 6 },
+            newPassword: { type: 'string', minLength: 8 },
           },
         },
       },
@@ -139,7 +148,7 @@ export async function userRoutes(app: FastifyInstance) {
           properties: {
             email: { type: 'string', format: 'email' },
             name: { type: 'string' },
-            password: { type: 'string', minLength: 6 },
+            password: { type: 'string', minLength: 8 },
             role: { type: 'string', enum: userRoleEnum },
             companyId: { type: 'string', format: 'uuid', nullable: true },
             restaurantId: { type: 'string', format: 'uuid', nullable: true },
@@ -176,7 +185,7 @@ export async function userRoutes(app: FastifyInstance) {
           type: 'object',
           required: ['newPassword'],
           properties: {
-            newPassword: { type: 'string', minLength: 6 },
+            newPassword: { type: 'string', minLength: 8 },
           },
         },
       },
@@ -187,6 +196,7 @@ export async function userRoutes(app: FastifyInstance) {
   app.post(
     '/me/email-challenge/send',
     {
+      config: { rateLimit: sensitivePublicRateLimit },
       preHandler: [
         authMiddleware,
         roleMiddleware([$Enums.UserRole.REQUESTER]),
@@ -203,6 +213,7 @@ export async function userRoutes(app: FastifyInstance) {
   app.post(
     '/me/email-challenge/verify',
     {
+      config: { rateLimit: sensitivePublicRateLimit },
       preHandler: [
         authMiddleware,
         roleMiddleware([$Enums.UserRole.REQUESTER]),
@@ -223,21 +234,23 @@ export async function userRoutes(app: FastifyInstance) {
     verifyEmailChallenge,
   );
 
-  app.post(
-    '/me/email-challenge/force',
-    {
-      preHandler: [
-        authMiddleware,
-        roleMiddleware([$Enums.UserRole.REQUESTER]),
-      ],
-      schema: {
-        tags: ['users'],
-        summary: 'Simular vencimento da verificação por e-mail',
-        security: [{ bearerAuth: [] }],
+  if (env.NODE_ENV !== 'production') {
+    app.post(
+      '/me/email-challenge/force',
+      {
+        preHandler: [
+          authMiddleware,
+          roleMiddleware([$Enums.UserRole.REQUESTER]),
+        ],
+        schema: {
+          tags: ['users'],
+          summary: 'Simular vencimento da verificação por e-mail',
+          security: [{ bearerAuth: [] }],
+        },
       },
-    },
-    forceEmailChallenge,
-  );
+      forceEmailChallenge,
+    );
+  }
 
   app.patch(
     '/me/email',

@@ -39,7 +39,7 @@ export async function createRegistrationRequest(
       name: z.string().optional(),
       email: z.email('E-mail inválido'),
       phone: z.string().min(8, 'Informe o celular'),
-      password: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
+      password: z.string().min(8, 'Senha deve ter no mínimo 8 caracteres'),
       companyKind: z.enum($Enums.CompanyKind),
       companyName: z.string().optional(),
       cardNumber: z.string().optional(),

@@ -10,7 +10,7 @@ export async function register(request: FastifyRequest, reply: FastifyReply) {
   const bodySchema = z.object({
     email: z.email('E-mail inválido'),
     name: z.string().min(1, 'Nome é obrigatório'),
-    password: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
+    password: z.string().min(8, 'Senha deve ter no mínimo 8 caracteres'),
     role: z.enum($Enums.UserRole),
     companyId: z.string().uuid().nullable().optional(),
     restaurantId: z.string().uuid().nullable().optional(),
@@ -85,7 +85,7 @@ export async function changePassword(
   reply: FastifyReply,
 ) {
   const bodySchema = z.object({
-    newPassword: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
+    newPassword: z.string().min(8, 'Senha deve ter no mínimo 8 caracteres'),
   });
   const { newPassword } = bodySchema.parse(request.body);
   const userService = new UserService();
@@ -321,7 +321,7 @@ export async function resetPasswordWithCode(
 ) {
   const bodySchema = z.object({
     token: z.string().min(1, 'Link inválido'),
-    newPassword: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
+    newPassword: z.string().min(8, 'Senha deve ter no mínimo 8 caracteres'),
   });
   const body = bodySchema.parse(request.body);
   const passwordResetService = new PasswordResetService();

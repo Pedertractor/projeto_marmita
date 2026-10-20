@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import bcrypt from 'bcrypt';
 import { HttpError } from '../https/errors/index.js';
 import { prisma } from '../lib/prisma.js';
@@ -24,6 +25,17 @@ export type RegisterUserInput = {
   restaurantId?: string | null | undefined;
   active?: boolean | undefined;
 };
+
+function generateTemporaryPassword(length = 12): string {
+  const alphabet =
+    'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+  const bytes = randomBytes(length);
+  let password = '';
+  for (let i = 0; i < length; i += 1) {
+    password += alphabet[bytes[i]! % alphabet.length];
+  }
+  return password;
+}
 
 function serializeUser(
   user: UserWithoutPassword | UserWithRelations,
@@ -339,7 +351,7 @@ export class UserService {
       );
     }
 
-    const temporaryPassword = '123';
+    const temporaryPassword = generateTemporaryPassword();
     const passwordHash = await bcrypt.hash(temporaryPassword, 10);
     const updated = await userRepository.resetPassword(
       targetUserId,

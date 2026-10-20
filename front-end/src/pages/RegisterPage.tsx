@@ -71,7 +71,7 @@ export function RegisterPage() {
     name.trim().length > 0 &&
     emailLooksValid &&
     phoneDigits.length >= 10 &&
-    password.length >= 6 &&
+    password.length >= 8 &&
     confirmPassword.length >= 6 &&
     password === confirmPassword;
 
@@ -167,8 +167,8 @@ export function RegisterPage() {
       toast.error('As senhas não coincidem.');
       return;
     }
-    if (password.length < 6) {
-      toast.error('Senha deve ter no mínimo 6 caracteres.');
+    if (password.length < 8) {
+      toast.error('Senha deve ter no mínimo 8 caracteres.');
       return;
     }
     if (isInternal && !employee) {

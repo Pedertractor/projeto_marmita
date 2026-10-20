@@ -173,7 +173,7 @@ export function LoginForm({
                       id='newPassword'
                       type={showNewPassword ? 'text' : 'password'}
                       autoComplete='new-password'
-                      placeholder='Mínimo 6 caracteres'
+                      placeholder='Mínimo 8 caracteres'
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                       onKeyDown={syncCapsLockFromEvent}

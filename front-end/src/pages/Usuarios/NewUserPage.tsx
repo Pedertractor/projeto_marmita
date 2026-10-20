@@ -172,7 +172,7 @@ export function NewUserPage() {
             disabled={
               !name.trim() ||
               !email.trim() ||
-              password.length < 6 ||
+              password.length < 8 ||
               (needsCompany && !companyId) ||
               registerMutation.isPending
             }

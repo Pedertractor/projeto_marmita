@@ -27,6 +27,19 @@ export function apiErrorHandler(
     return sendError(reply, 400, message);
   }
 
+  const statusCode =
+    'statusCode' in error && typeof error.statusCode === 'number'
+      ? error.statusCode
+      : undefined;
+
+  if (statusCode && statusCode >= 400 && statusCode < 500) {
+    return sendError(
+      reply,
+      statusCode,
+      error.message || 'Requisição inválida',
+    );
+  }
+
   console.error('Unhandled error:', error);
   return sendError(reply, 500, INTERNAL_SERVER_ERROR_MESSAGE);
 }

@@ -93,7 +93,9 @@ export function UserListPage() {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       setPending(null);
       toast.success(
-        `Senha redefinida para ${data.temporaryPassword ?? '123'}.`,
+        data.temporaryPassword
+          ? `Senha temporária: ${data.temporaryPassword}. O usuário precisará trocá-la no próximo login.`
+          : 'Senha redefinida. O usuário precisará trocá-la no próximo login.',
       );
     },
   });
@@ -310,7 +312,7 @@ export function UserListPage() {
             </AlertDialogTitle>
             <AlertDialogDescription>
               {pending?.type === 'reset'
-                ? `A senha de “${pending.user.name}” será redefinida para 123. No próximo login, o usuário precisará definir uma nova senha.`
+                ? `A senha de “${pending.user.name}” será substituída por uma senha temporária aleatória. No próximo login, o usuário precisará definir uma nova senha.`
                 : pending?.type === 'toggle'
                   ? pending.user.active
                     ? `“${pending.user.name}” perderá o acesso ao sistema enquanto estiver inativo.`

@@ -27,6 +27,19 @@ function normalizeRecipient(name: string): string {
   return name.trim().toLowerCase();
 }
 
+function requireBoundRestaurantId(user: {
+  role: $Enums.UserRole;
+  restaurantId: string | null;
+}): string {
+  if (user.role === $Enums.UserRole.RESTAURANT && user.restaurantId) {
+    return user.restaurantId;
+  }
+  throw new HttpError(
+    'Usuário de restaurante sem restaurante vinculado',
+    403,
+  );
+}
+
 /** Remove campos monetários da resposta para o papel restaurante. */
 function omitOrderPricing<T extends { unitPrice?: unknown; totalPrice?: unknown }>(
   order: T,
@@ -455,12 +468,11 @@ export class OrderService {
       throw new HttpError('Pedido não encontrado', 404);
     }
 
-    if (
-      user.role === $Enums.UserRole.RESTAURANT &&
-      user.restaurantId &&
-      order.restaurantId !== user.restaurantId
-    ) {
-      throw new HttpError('Pedido de outro restaurante', 403);
+    if (user.role === $Enums.UserRole.RESTAURANT) {
+      const restaurantId = requireBoundRestaurantId(user);
+      if (order.restaurantId !== restaurantId) {
+        throw new HttpError('Pedido de outro restaurante', 403);
+      }
     }
 
     if (user.role === $Enums.UserRole.REQUESTER) {
@@ -543,7 +555,7 @@ export class OrderService {
     }
 
     if (user.role === $Enums.UserRole.RESTAURANT) {
-      if (user.restaurantId) base.restaurantId = user.restaurantId;
+      base.restaurantId = requireBoundRestaurantId(user);
       if (base.status === $Enums.OrderStatus.DRAFT) {
         return [];
       }
@@ -579,12 +591,11 @@ export class OrderService {
       throw new HttpError('Sem permissão para ver este pedido', 403);
     }
 
-    if (
-      user.role === $Enums.UserRole.RESTAURANT &&
-      user.restaurantId &&
-      order.restaurantId !== user.restaurantId
-    ) {
-      throw new HttpError('Sem permissão para ver este pedido', 403);
+    if (user.role === $Enums.UserRole.RESTAURANT) {
+      const restaurantId = requireBoundRestaurantId(user);
+      if (order.restaurantId !== restaurantId) {
+        throw new HttpError('Sem permissão para ver este pedido', 403);
+      }
     }
 
     if (
@@ -659,7 +670,9 @@ export class OrderService {
     }
 
     let restaurantId = user.restaurantId ?? undefined;
-    if (!restaurantId) {
+    if (user.role === $Enums.UserRole.RESTAURANT) {
+      restaurantId = requireBoundRestaurantId(user);
+    } else if (!restaurantId) {
       const first = await restaurantRepo.findFirstActive();
       restaurantId = first?.id;
     }

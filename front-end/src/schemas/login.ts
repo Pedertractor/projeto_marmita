@@ -16,7 +16,7 @@ export type LoginCardFormData = z.infer<typeof loginCardSchema>;
 
 export const changePasswordFormSchema = z
   .object({
-    newPassword: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
+    newPassword: z.string().min(8, 'Senha deve ter no mínimo 8 caracteres'),
     confirmPassword: z.string().min(1, 'Confirme a nova senha'),
   })
   .refine((data) => data.newPassword === data.confirmPassword, {
@@ -32,7 +32,7 @@ export const forgotPasswordEmailSchema = z.object({
 
 export const resetPasswordFormSchema = z
   .object({
-    newPassword: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
+    newPassword: z.string().min(8, 'Senha deve ter no mínimo 8 caracteres'),
     confirmPassword: z.string().min(1, 'Confirme a nova senha'),
   })
   .refine((data) => data.newPassword === data.confirmPassword, {
