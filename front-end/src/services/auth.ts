@@ -70,6 +70,13 @@ export const authApi = {
     return data;
   },
 
+  async updateMyAvatar(avatar: string) {
+    const { data } = await api.put<{ user: AuthUser }>('/users/me/avatar', {
+      avatar,
+    });
+    return data;
+  },
+
   async forgotPassword(email: string) {
     const { data } = await api.post<{
       message: string;

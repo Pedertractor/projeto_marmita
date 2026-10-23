@@ -6,6 +6,7 @@ import {
   MealIngredientsBadges,
   mealObservationText,
 } from '@/components/MealIngredientsBadges';
+import { OrderSpecialBadge } from '@/components/OrderSpecialBadge';
 import { OrderStatusBadge } from '@/components/OrderStatusBadge';
 import { OrderStatusTimeline } from '@/components/OrderStatusTimeline';
 import { Button } from '@/components/ui/button';
@@ -18,6 +19,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import {
+  canCreateSpecialOrder,
   canUpdateOrderStatus,
   canViewOrderPricing,
 } from '@/config/permissions';
@@ -37,6 +39,7 @@ import {
   orderStatusActionLabel,
   orderStatusLabel,
 } from '@/utils/status-labels';
+import { specialOrderEditPath } from '@/routes/constants';
 
 function FulfillmentLabel({
   type,
@@ -117,9 +120,19 @@ export function AdminOrderDetailPage() {
             <ArrowLeft className='size-4' />
           </Link>
         </Button>
-        <h1 className='flex-1 text-2xl font-semibold tracking-tight'>
+        <h1 className='flex flex-1 flex-wrap items-center gap-2 text-2xl font-semibold tracking-tight'>
           #{order.orderCode}
+          {order.isSpecial ? <OrderSpecialBadge /> : null}
         </h1>
+        {order.isSpecial &&
+        order.status === 'SUBMITTED' &&
+        user?.role &&
+        canCreateSpecialOrder(user.role) &&
+        order.requesterId === user.id ? (
+          <Button asChild variant='outline' size='sm'>
+            <Link to={specialOrderEditPath(order.id)}>Editar</Link>
+          </Button>
+        ) : null}
       </div>
 
       <Card>
@@ -130,6 +143,11 @@ export function AdminOrderDetailPage() {
           </CardAction>
         </CardHeader>
         <CardContent className='space-y-2 text-sm'>
+          {order.isSpecial ? (
+            <p className='text-amber-800'>
+              Solicitação especial do RH (fora da janela normal).
+            </p>
+          ) : null}
           <p>
             Empresa: <strong>{order.companyName}</strong>
           </p>
@@ -174,6 +192,11 @@ export function AdminOrderDetailPage() {
             return (
               <div key={meal.id} className='rounded-2xl border p-3 text-sm'>
                 <p className='mb-2 font-medium'>{meal.recipientName}</p>
+                {meal.workLocation?.trim() ? (
+                  <p className='mb-2 text-xs text-muted-foreground'>
+                    Local: {meal.workLocation.trim()}
+                  </p>
+                ) : null}
                 <MealIngredientsBadges
                   items={meal.items}
                   menuItems={menu?.items}

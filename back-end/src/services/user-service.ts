@@ -15,6 +15,12 @@ import {
   toEmailChallengePublic,
   needsEmailChallenge,
 } from '../lib/email-challenge.js';
+import {
+  avatarPublicUrl,
+  deleteAvatar,
+  saveAvatarFromDataUrl,
+} from '../lib/avatar-storage.js';
+import { AuditLogService } from './audit-log-service.js';
 
 export type RegisterUserInput = {
   email: string;
@@ -24,6 +30,7 @@ export type RegisterUserInput = {
   companyId?: string | null | undefined;
   restaurantId?: string | null | undefined;
   active?: boolean | undefined;
+  requiresWorkLocation?: boolean | undefined;
 };
 
 function generateTemporaryPassword(length = 12): string {
@@ -50,6 +57,8 @@ function serializeUser(
     role: user.role,
     active: user.active,
     mustChangePassword: user.mustChangePassword,
+    requiresWorkLocation: user.requiresWorkLocation,
+    avatarUrl: avatarPublicUrl(user.avatarPath),
     companyId: user.companyId,
     restaurantId: user.restaurantId,
     createdAt: user.createdAt.toISOString(),
@@ -131,6 +140,10 @@ export class UserService {
       passwordHash,
       role: input.role,
       active: input.active ?? true,
+      requiresWorkLocation:
+        input.role === $Enums.UserRole.REQUESTER
+          ? (input.requiresWorkLocation ?? false)
+          : false,
       companyId:
         input.role === $Enums.UserRole.REQUESTER
           ? (input.companyId ?? null)
@@ -266,6 +279,7 @@ export class UserService {
       phone?: string | null | undefined;
       role?: $Enums.UserRole | undefined;
       active?: boolean | undefined;
+      requiresWorkLocation?: boolean | undefined;
       companyId?: string | null | undefined;
       restaurantId?: string | null | undefined;
     },
@@ -296,6 +310,16 @@ export class UserService {
       ...(data.phone !== undefined ? { phone: data.phone } : {}),
       ...(data.role !== undefined ? { role: data.role } : {}),
       ...(data.active !== undefined ? { active: data.active } : {}),
+      ...(data.requiresWorkLocation !== undefined
+        ? {
+            requiresWorkLocation:
+              nextRole === $Enums.UserRole.REQUESTER
+                ? data.requiresWorkLocation
+                : false,
+          }
+        : nextRole !== $Enums.UserRole.REQUESTER
+          ? { requiresWorkLocation: false }
+          : {}),
       companyId:
         nextRole === $Enums.UserRole.REQUESTER ? nextCompanyId : null,
       restaurantId:
@@ -403,7 +427,37 @@ export class UserService {
       );
     }
 
+    const previousAvatar = target.avatarPath;
     await userRepository.deleteById(targetUserId);
+    await deleteAvatar(previousAvatar);
     return { ok: true as const };
+  }
+
+  async updateMyAvatar(userId: string, avatarDataUrl: string) {
+    const userRepository = new UserPrismaRepository(prisma);
+    const user = await userRepository.findById(userId);
+    if (!user) {
+      throw new HttpError('Usuário não encontrado', 404);
+    }
+
+    const avatarPath = await saveAvatarFromDataUrl(avatarDataUrl);
+    try {
+      const updated = await userRepository.update(userId, { avatarPath });
+      await deleteAvatar(user.avatarPath);
+
+      const audit = new AuditLogService();
+      await audit.write({
+        userId,
+        action: 'USER_AVATAR_UPDATE',
+        entityType: 'User',
+        entityId: userId,
+        after: { avatarPath },
+      });
+
+      return this.getMe(updated.id);
+    } catch (error) {
+      await deleteAvatar(avatarPath);
+      throw error;
+    }
   }
 }

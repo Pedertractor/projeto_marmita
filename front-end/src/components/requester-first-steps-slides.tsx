@@ -122,7 +122,7 @@ function OrdersPreview() {
         <div>
           <p className='text-[11px] font-medium'>#1042</p>
           <p className='text-[10px] text-muted-foreground'>
-            2 marmitas · Retirada
+            2 marmitas
           </p>
         </div>
         <span className='rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-800'>
@@ -149,7 +149,7 @@ const ORDER_STEPS = [
   { title: 'Quantidade', detail: 'Quantas marmitas' },
   { title: 'Destinatários', detail: 'Nome de quem recebe' },
   { title: 'Cardápio', detail: 'Itens e observações' },
-  { title: 'Finalizar', detail: 'Retirada ou entrega' },
+  { title: 'Finalizar', detail: 'Confira e envie' },
 ];
 
 function FlowPreview() {
@@ -212,7 +212,7 @@ export const FIRST_STEPS: FirstStep[] = [
     points: [
       'Informe a quantidade e quem vai receber.',
       'Ajuste o cardápio e as observações.',
-      'Escolha retirada ou entrega e finalize o pedido.',
+      'Confira o resumo e finalize o pedido.',
     ],
     Preview: FlowPreview,
   },

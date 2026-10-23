@@ -24,6 +24,8 @@ import {
 
   ScrollText,
 
+  Sparkles,
+
   UserPlus,
 
   Users,
@@ -115,6 +117,12 @@ export const SIDEBAR_NAV_ITEMS: SidebarNavItem[] = [
   },
 
   { path: ROUTES.ORDERS, label: 'Pedidos', icon: lucideSidebarIcon(ClipboardList) },
+
+  {
+    path: ROUTES.SPECIAL_ORDER_NEW,
+    label: 'Solicitação especial',
+    icon: lucideSidebarIcon(Sparkles),
+  },
 
   { path: ROUTES.MENUS, label: 'Cardápios', icon: lucideSidebarIcon(BookOpen) },
 

@@ -7,6 +7,9 @@ import {
   listOrders,
   getOrderById,
   changeOrderStatus,
+  startPrepAndPrint,
+  markBatchReady,
+  simulatePrepPdf,
 } from '../controllers/order-controller.js';
 import { $Enums } from '../../generated/prisma/client.js';
 import { authMiddleware } from '../../middlewares/auth-middleware.js';
@@ -20,7 +23,7 @@ export async function orderRoutes(app: FastifyInstance) {
     {
       preHandler: [
         authMiddleware,
-        roleMiddleware([$Enums.UserRole.REQUESTER]),
+        roleMiddleware([$Enums.UserRole.REQUESTER, $Enums.UserRole.RH]),
       ],
       schema: {
         tags: ['orders'],
@@ -36,7 +39,7 @@ export async function orderRoutes(app: FastifyInstance) {
     {
       preHandler: [
         authMiddleware,
-        roleMiddleware([$Enums.UserRole.REQUESTER]),
+        roleMiddleware([$Enums.UserRole.REQUESTER, $Enums.UserRole.RH]),
       ],
       schema: {
         tags: ['orders'],
@@ -58,6 +61,56 @@ export async function orderRoutes(app: FastifyInstance) {
       },
     },
     listOrders,
+  );
+
+  app.post(
+    '/batch/start-prep',
+    {
+      preHandler: [
+        authMiddleware,
+        roleMiddleware([$Enums.UserRole.RESTAURANT]),
+      ],
+      schema: {
+        tags: ['orders'],
+        summary:
+          'Iniciar preparo em lote (SUBMITTED → ACCEPTED) e baixar PDF',
+        security: [{ bearerAuth: [] }],
+      },
+    },
+    startPrepAndPrint,
+  );
+
+  app.post(
+    '/batch/mark-ready',
+    {
+      preHandler: [
+        authMiddleware,
+        roleMiddleware([$Enums.UserRole.RESTAURANT]),
+      ],
+      schema: {
+        tags: ['orders'],
+        summary: 'Marcar lote em preparo como pronto (ACCEPTED → READY)',
+        security: [{ bearerAuth: [] }],
+      },
+    },
+    markBatchReady,
+  );
+
+  app.post(
+    '/batch/simulate-pdf',
+    {
+      preHandler: [
+        authMiddleware,
+        roleMiddleware([$Enums.UserRole.RESTAURANT]),
+      ],
+      schema: {
+        tags: ['orders'],
+        summary:
+          'Simular PDF de impressão do dia (sem alterar status nem horário)',
+        security: [{ bearerAuth: [] }],
+      },
+    },
+    simulatePrepPdf,
   );
 
   app.get(
@@ -85,7 +138,7 @@ export async function orderRoutes(app: FastifyInstance) {
     {
       preHandler: [
         authMiddleware,
-        roleMiddleware([$Enums.UserRole.REQUESTER]),
+        roleMiddleware([$Enums.UserRole.REQUESTER, $Enums.UserRole.RH]),
       ],
       schema: {
         tags: ['orders'],
@@ -101,7 +154,7 @@ export async function orderRoutes(app: FastifyInstance) {
     {
       preHandler: [
         authMiddleware,
-        roleMiddleware([$Enums.UserRole.REQUESTER]),
+        roleMiddleware([$Enums.UserRole.REQUESTER, $Enums.UserRole.RH]),
       ],
       schema: {
         tags: ['orders'],

@@ -26,8 +26,8 @@ import {
 import { formatDate, formatDateTime } from '@/utils/format';
 import {
   canRequesterEditOrder,
-  formatEditCountdown,
-  getOrderEditRemainingMs,
+  getRequesterEditBlockReason,
+  requesterOrderWindowHint,
 } from '@/utils/order-status';
 import { orderFulfillmentLabel } from '@/utils/status-labels';
 import { cn } from '@/lib/utils';
@@ -65,6 +65,7 @@ export function RequesterOrderDetailPage() {
   });
 
   const menuDate = order?.menuDate?.slice(0, 10);
+
   const { data: menu } = useQuery({
     queryKey: ['menu', menuDate, order?.restaurantId],
     queryFn: () => menusApi.getByDate(menuDate!, order?.restaurantId),
@@ -79,15 +80,10 @@ export function RequesterOrderDetailPage() {
 
   useEffect(() => {
     if (!order || order.status !== 'SUBMITTED') return;
-    if (getOrderEditRemainingMs(order) <= 0) return;
 
     const timer = window.setInterval(() => {
-      const next = Date.now();
-      setNow(next);
-      if (getOrderEditRemainingMs(order, new Date(next)) <= 0) {
-        window.clearInterval(timer);
-      }
-    }, 1000);
+      setNow(Date.now());
+    }, 30_000);
 
     return () => window.clearInterval(timer);
   }, [order]);
@@ -107,9 +103,19 @@ export function RequesterOrderDetailPage() {
     );
   }
 
-  const editRemainingMs = getOrderEditRemainingMs(order, new Date(now));
   const canEdit = canRequesterEditOrder(order, new Date(now));
   const showEditButton = order.status === 'SUBMITTED';
+  const blockReason = getRequesterEditBlockReason(order, new Date(now));
+  const editHint =
+    canEdit
+      ? requesterOrderWindowHint(new Date(now))
+      : blockReason === 'outside_window'
+        ? 'Fora do horário'
+        : blockReason === 'accepted'
+          ? 'Em preparo'
+          : blockReason === 'ready'
+            ? 'Já finalizado'
+            : 'Indisponível';
 
   return (
     <div className='space-y-4'>
@@ -152,6 +158,11 @@ export function RequesterOrderDetailPage() {
             return (
               <div key={meal.id} className='rounded-2xl border p-3 text-sm'>
                 <p className='mb-2 font-medium'>{meal.recipientName}</p>
+                {meal.workLocation?.trim() ? (
+                  <p className='mb-2 text-xs text-muted-foreground'>
+                    Local: {meal.workLocation.trim()}
+                  </p>
+                ) : null}
                 <MealIngredientsBadges
                   items={meal.items}
                   menuItems={menu?.items}
@@ -188,8 +199,8 @@ export function RequesterOrderDetailPage() {
                 <Pencil className='size-4 shrink-0' />
                 <span className='flex flex-col items-start gap-0.5'>
                   <span>Editar pedido</span>
-                  <span className='text-[11px] font-normal tabular-nums opacity-90'>
-                    {formatEditCountdown(editRemainingMs)} restantes
+                  <span className='text-[11px] font-normal opacity-90'>
+                    {editHint}
                   </span>
                 </span>
               </Link>
@@ -198,13 +209,13 @@ export function RequesterOrderDetailPage() {
             <Button
               disabled
               className='h-auto min-h-9 gap-3 py-1.5'
-              aria-label='Editar pedido — tempo esgotado'
+              aria-label={`Editar pedido — ${editHint}`}
             >
               <Pencil className='size-4 shrink-0' />
               <span className='flex flex-col items-start gap-0.5 leading-tight'>
                 <span>Editar pedido</span>
-                <span className='text-[11px] font-normal tabular-nums opacity-90'>
-                  Tempo esgotado
+                <span className='text-[11px] font-normal opacity-90'>
+                  {editHint}
                 </span>
               </span>
             </Button>

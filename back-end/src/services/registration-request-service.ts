@@ -9,7 +9,21 @@ import { RegistrationRequestPrismaRepository } from '../repositories/prisma/regi
 import { UserPrismaRepository } from '../repositories/prisma/user-repository.js';
 import { syntheticEmailForCard } from '../lib/internal-user-email.js';
 import { randomEmailChallengeDueAt } from '../lib/email-challenge.js';
+import {
+  avatarPublicUrl,
+  deleteAvatar,
+  saveAvatarFromDataUrl,
+} from '../lib/avatar-storage.js';
 import { AuditLogService } from './audit-log-service.js';
+import type { RegistrationRequestSafe } from '../repositories/prisma/registration-request-repository.js';
+
+function serializeRegistration(registration: RegistrationRequestSafe) {
+  const { avatarPath, ...rest } = registration;
+  return {
+    ...rest,
+    avatarUrl: avatarPublicUrl(avatarPath),
+  };
+}
 
 const KIND_TO_UNIT: Record<
   'PEDERTRACTOR' | 'TRACTOR',
@@ -145,10 +159,14 @@ export class RegistrationRequestService {
     companyKind: $Enums.CompanyKind;
     companyName?: string | undefined;
     cardNumber?: string | undefined;
+    avatar: string;
   }) {
     const phone = input.phone.trim();
     if (!phone) {
       throw new HttpError('Informe o celular', 400);
+    }
+    if (!input.avatar?.trim()) {
+      throw new HttpError('Envie sua foto', 400);
     }
 
     const companyRepo = new CompanyPrismaRepository(prisma);
@@ -218,31 +236,42 @@ export class RegistrationRequestService {
     }
 
     const passwordHash = await bcrypt.hash(input.password, 10);
-    const created = await regRepo.create({
-      name,
-      email,
-      phone,
-      passwordHash,
-      companyKind: input.companyKind,
-      companyName,
-      companyId,
-      cardNumber,
-      unit,
-      employeeExternalId,
-    });
-
-    return created;
+    const avatarPath = await saveAvatarFromDataUrl(input.avatar);
+    try {
+      const created = await regRepo.create({
+        name,
+        email,
+        phone,
+        passwordHash,
+        companyKind: input.companyKind,
+        companyName,
+        companyId,
+        cardNumber,
+        unit,
+        employeeExternalId,
+        avatarPath,
+      });
+      return serializeRegistration(created);
+    } catch (error) {
+      await deleteAvatar(avatarPath);
+      throw error;
+    }
   }
 
   async list(status?: $Enums.RegistrationStatus) {
     const repo = new RegistrationRequestPrismaRepository(prisma);
-    return repo.list(status);
+    const rows = await repo.list(status);
+    return rows.map(serializeRegistration);
   }
 
   async approve(
     requestId: string,
     reviewerId: string,
-    input: { mealPriceAmount: number; companyName?: string | undefined },
+    input: {
+      mealPriceAmount: number;
+      companyName?: string | undefined;
+      requiresWorkLocation?: boolean | undefined;
+    },
   ) {
     if (input.mealPriceAmount <= 0) {
       throw new HttpError('Informe um valor de marmita válido', 400);
@@ -356,12 +385,14 @@ export class RegistrationRequestService {
         role: $Enums.UserRole.REQUESTER,
         active: true,
         mustChangePassword: false,
+        requiresWorkLocation: input.requiresWorkLocation ?? false,
         companyId,
         restaurantId: null,
         phone: raw.phone,
         cardNumber: raw.cardNumber,
         unit: raw.unit,
         emailChallengeDueAt: randomEmailChallengeDueAt(),
+        avatarPath: raw.avatarPath,
       });
 
       const reviewed = await regRepo.markReviewed(requestId, {
@@ -380,7 +411,13 @@ export class RegistrationRequestService {
         after: { registration: reviewed, userId: user.id, companyId },
       });
 
-      return { registration: reviewed, user };
+      return {
+        registration: serializeRegistration(reviewed),
+        user: {
+          ...user,
+          avatarUrl: avatarPublicUrl(user.avatarPath),
+        },
+      };
     });
   }
 
@@ -414,6 +451,6 @@ export class RegistrationRequestService {
       after: reviewed,
     });
 
-    return reviewed;
+    return serializeRegistration(reviewed);
   }
 }

@@ -419,23 +419,7 @@ export function MealPricePage() {
 
 
 
-                <img
-
-                  src='/tigela_dinheiro.png'
-
-                  alt=''
-
-                  aria-hidden
-
-                  draggable={false}
-
-                  className='pointer-events-none absolute right-0 bottom-0 z-0 h-[92%] w-auto max-w-[48%] object-contain object-bottom-right select-none sm:max-w-[42%]'
-
-                />
-
-
-
-                <div className='relative z-10 min-w-0 w-[58%] pr-2'>
+                <div className='relative z-10 min-w-0'>
 
                   <div className='min-w-0 space-y-1'>
 

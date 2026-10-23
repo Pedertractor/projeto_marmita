@@ -3,6 +3,7 @@ import {
   login,
   register,
   getMe,
+  updateMyAvatar,
   changePassword,
   sendEmailChallenge,
   verifyEmailChallenge,
@@ -171,6 +172,26 @@ export async function userRoutes(app: FastifyInstance) {
       },
     },
     getMe,
+  );
+
+  app.put(
+    '/me/avatar',
+    {
+      preHandler: [authMiddleware],
+      schema: {
+        tags: ['users'],
+        summary: 'Atualizar foto de perfil',
+        security: [{ bearerAuth: [] }],
+        body: {
+          type: 'object',
+          required: ['avatar'],
+          properties: {
+            avatar: { type: 'string', minLength: 1 },
+          },
+        },
+      },
+    },
+    updateMyAvatar,
   );
 
   app.put(

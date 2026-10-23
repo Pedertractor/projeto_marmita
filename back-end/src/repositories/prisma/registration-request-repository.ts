@@ -15,6 +15,7 @@ const registrationSelect = {
   cardNumber: true,
   unit: true,
   employeeExternalId: true,
+  avatarPath: true,
   status: true,
   reviewedById: true,
   reviewedAt: true,
@@ -83,6 +84,7 @@ export class RegistrationRequestPrismaRepository {
     cardNumber?: string | null;
     unit?: $Enums.Unit | null;
     employeeExternalId?: string | null;
+    avatarPath?: string | null;
   }) {
     return this.prisma.registrationRequest.create({
       data: {
@@ -96,6 +98,7 @@ export class RegistrationRequestPrismaRepository {
         cardNumber: data.cardNumber ?? null,
         unit: data.unit ?? null,
         employeeExternalId: data.employeeExternalId ?? null,
+        avatarPath: data.avatarPath ?? null,
       },
       select: registrationSelect,
     });

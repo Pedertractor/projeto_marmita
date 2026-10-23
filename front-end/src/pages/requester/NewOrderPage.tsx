@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'motion/react';
@@ -10,8 +10,6 @@ import {
   Check,
   Minus,
   Plus,
-  ShoppingBag,
-  Truck,
 } from 'lucide-react';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { MealBagsProgress } from '@/components/MealBagsProgress';
@@ -22,18 +20,24 @@ import { MenuItemsGrid } from '@/components/MenuItemsGrid';
 import { MenuItemIcon } from '@/components/MenuItemIcon';
 import { OrderSuccessOverlay } from '@/components/OrderSuccessOverlay';
 import { QuantityMascotScene } from '@/components/QuantityMascotScene';
+import { useAuth } from '@/contexts/useAuth';
 import { menusApi } from '@/services/menus';
 import { ordersApi } from '@/services/orders';
-import { ROUTES, requesterOrderPath } from '@/routes/constants';
+import {
+  ROUTES,
+  adminOrderPath,
+  requesterOrderPath,
+} from '@/routes/constants';
 import { todayISODate } from '@/utils/format';
 import { generateOrderCode } from '@/utils/order-code';
 import {
   canRequesterEditOrder,
   getRequesterEditBlockReason,
+  isRequesterOrderWindowOpen,
   requesterEditBlockMessage,
   requesterEditBlockMessageFromApi,
+  REQUESTER_ORDER_WINDOW_MESSAGE,
 } from '@/utils/order-status';
-import type { OrderFulfillmentType } from '@/types/domain';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -49,9 +53,14 @@ import { cn } from '@/lib/utils';
 
 type MealDraft = {
   recipientName: string;
+  workLocation: string;
   notes: string;
   itemIds: string[];
 };
+
+function emptyMealDraft(): MealDraft {
+  return { recipientName: '', workLocation: '', notes: '', itemIds: [] };
+}
 
 const STEPS = [
   'Quantidade',
@@ -64,20 +73,32 @@ const CHECK_DURATION_MS = 1100;
 const SCROLL_TO_TOP_MS = 320;
 const SUCCESS_DURATION_MS = 1800;
 
-export function NewOrderPage({ editMode = false }: { editMode?: boolean }) {
+export function NewOrderPage({
+  editMode = false,
+  specialMode = false,
+}: {
+  editMode?: boolean;
+  /** Fluxo RH: sem janela de horário; destino admin após envio. */
+  specialMode?: boolean;
+}) {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const today = todayISODate();
   const isLocalNew = !editMode && !orderId;
+  const detailPath = useCallback(
+    (id: string) =>
+      specialMode ? adminOrderPath(id) : requesterOrderPath(id),
+    [specialMode],
+  );
+  const homePath = specialMode ? ROUTES.ORDERS : ROUTES.REQUESTER_HOME;
+  const requiresWorkLocation =
+    !specialMode && Boolean(user?.requiresWorkLocation);
 
   const [step, setStep] = useState(0);
   const [quantity, setQuantity] = useState(1);
-  const [fulfillmentType, setFulfillmentType] =
-    useState<OrderFulfillmentType | null>(null);
-  const [meals, setMeals] = useState<MealDraft[]>([
-    { recipientName: '', notes: '', itemIds: [] },
-  ]);
+  const [meals, setMeals] = useState<MealDraft[]>([emptyMealDraft()]);
   const [menuId, setMenuId] = useState<string | null>(null);
   const [orderCode, setOrderCode] = useState<string | null>(() =>
     isLocalNew ? generateOrderCode() : null,
@@ -113,21 +134,34 @@ export function NewOrderPage({ editMode = false }: { editMode?: boolean }) {
   }, [menu?.id]);
 
   useEffect(() => {
-    if (!editMode || !existing || existing.status !== 'SUBMITTED') return;
-    if (!canRequesterEditOrder(existing)) return;
-
-    const timer = window.setInterval(() => {
-      if (!canRequesterEditOrder(existing)) {
-        setNow(Date.now());
-        window.clearInterval(timer);
-      }
-    }, 1000);
-
+    const timer = window.setInterval(() => setNow(Date.now()), 30_000);
     return () => window.clearInterval(timer);
-  }, [editMode, existing]);
+  }, []);
 
   useEffect(() => {
     if (!editMode || !existing || editBlockedRef.current) return;
+
+    if (specialMode) {
+      if (existing.status === 'ACCEPTED') {
+        editBlockedRef.current = true;
+        toast.error(requesterEditBlockMessage('accepted'));
+        navigate(detailPath(existing.id), { replace: true });
+        return;
+      }
+      if (existing.status === 'READY') {
+        editBlockedRef.current = true;
+        toast.error(requesterEditBlockMessage('ready'));
+        navigate(detailPath(existing.id), { replace: true });
+        return;
+      }
+      if (existing.status !== 'SUBMITTED') {
+        editBlockedRef.current = true;
+        toast.error(requesterEditBlockMessage('not_editable'));
+        navigate(detailPath(existing.id), { replace: true });
+      }
+      return;
+    }
+
     if (canRequesterEditOrder(existing, new Date(now))) return;
 
     editBlockedRef.current = true;
@@ -137,40 +171,59 @@ export function NewOrderPage({ editMode = false }: { editMode?: boolean }) {
         ? requesterEditBlockMessage(reason)
         : requesterEditBlockMessage('not_editable'),
     );
-    navigate(requesterOrderPath(existing.id), { replace: true });
-  }, [editMode, existing, navigate, now]);
+    navigate(detailPath(existing.id), { replace: true });
+  }, [detailPath, editMode, existing, navigate, now, specialMode]);
+
+  useEffect(() => {
+    if (specialMode || editMode || editBlockedRef.current) return;
+    if (isRequesterOrderWindowOpen(new Date(now))) return;
+
+    editBlockedRef.current = true;
+    toast.error(REQUESTER_ORDER_WINDOW_MESSAGE);
+    navigate(ROUTES.REQUESTER_HOME, { replace: true });
+  }, [editMode, navigate, now, specialMode]);
 
   useEffect(() => {
     if (isLocalNew || !existing || hydrated) return;
 
-    if (editMode && !canRequesterEditOrder(existing)) return;
+    if (
+      editMode &&
+      !specialMode &&
+      !canRequesterEditOrder(existing)
+    ) {
+      return;
+    }
 
     if (!editMode && existing.status !== 'DRAFT') {
-      navigate(requesterOrderPath(existing.id), { replace: true });
+      navigate(detailPath(existing.id), { replace: true });
       return;
     }
 
     setOrderCode(existing.orderCode);
     setQuantity(existing.quantity);
     setMenuId(existing.menuId);
-    setFulfillmentType(existing.fulfillmentType ?? null);
     setMeals(
       existing.meals.length > 0
         ? existing.meals.map((m) => ({
             recipientName: m.recipientName,
+            workLocation: m.workLocation ?? '',
             notes: m.notes ?? '',
             itemIds: m.items
               .map((i) => i.menuItemId)
               .filter((id): id is string => Boolean(id)),
           }))
-        : Array.from({ length: existing.quantity }, () => ({
-            recipientName: '',
-            notes: '',
-            itemIds: [] as string[],
-          })),
+        : Array.from({ length: existing.quantity }, () => emptyMealDraft()),
     );
     setHydrated(true);
-  }, [editMode, existing, hydrated, isLocalNew, navigate]);
+  }, [
+    detailPath,
+    editMode,
+    existing,
+    hydrated,
+    isLocalNew,
+    navigate,
+    specialMode,
+  ]);
 
   const availableItems = useMemo(
     () => (menu?.items ?? []).filter((i) => i.available),
@@ -188,11 +241,9 @@ export function NewOrderPage({ editMode = false }: { editMode?: boolean }) {
       if (prev.length < quantity) {
         return [
           ...prev,
-          ...Array.from({ length: quantity - prev.length }, () => ({
-            recipientName: '',
-            notes: '',
-            itemIds: [] as string[],
-          })),
+          ...Array.from({ length: quantity - prev.length }, () =>
+            emptyMealDraft(),
+          ),
         ];
       }
       return prev.slice(0, quantity);
@@ -216,9 +267,9 @@ export function NewOrderPage({ editMode = false }: { editMode?: boolean }) {
     return {
       menuId,
       quantity,
-      fulfillmentType,
       meals: meals.map((m) => ({
         recipientName: m.recipientName.trim(),
+        workLocation: m.workLocation.trim() || null,
         notes: m.notes.trim() || null,
         itemIds: m.itemIds,
       })),
@@ -249,7 +300,6 @@ export function NewOrderPage({ editMode = false }: { editMode?: boolean }) {
           return await ordersApi.create(
             {
               ...payload,
-              fulfillmentType: fulfillmentType!,
               orderCode: code,
             },
             { skipErrorToast: true },
@@ -265,7 +315,6 @@ export function NewOrderPage({ editMode = false }: { editMode?: boolean }) {
             return await ordersApi.create(
               {
                 ...payload,
-                fulfillmentType: fulfillmentType!,
                 orderCode: code,
               },
               { skipErrorToast: true },
@@ -288,7 +337,7 @@ export function NewOrderPage({ editMode = false }: { editMode?: boolean }) {
       queryClient.invalidateQueries({ queryKey: ['order', order.id] });
       setShowOrderSuccess(true);
       window.setTimeout(() => {
-        navigate(requesterOrderPath(order.id));
+        navigate(detailPath(order.id));
       }, SUCCESS_DURATION_MS);
     },
     onError: (err: unknown) => {
@@ -299,18 +348,22 @@ export function NewOrderPage({ editMode = false }: { editMode?: boolean }) {
         typeof err.message === 'string'
           ? err.message
           : '';
-      if (editMode) {
-        const blocked = requesterEditBlockMessageFromApi(apiMessage);
-        if (blocked) {
-          if (!editBlockedRef.current) {
-            toast.error(blocked);
-          }
-          editBlockedRef.current = true;
-          if (orderId) {
-            navigate(requesterOrderPath(orderId), { replace: true });
-          }
-          return;
+      const windowBlocked = specialMode
+        ? null
+        : requesterEditBlockMessageFromApi(apiMessage);
+      if (windowBlocked) {
+        if (!editBlockedRef.current) {
+          toast.error(windowBlocked);
         }
+        editBlockedRef.current = true;
+        if (editMode && orderId) {
+          navigate(detailPath(orderId), { replace: true });
+        } else {
+          navigate(homePath, { replace: true });
+        }
+        return;
+      }
+      if (editMode) {
         toast.error('Não foi possível salvar as alterações.');
         return;
       }
@@ -373,6 +426,12 @@ export function NewOrderPage({ editMode = false }: { editMode?: boolean }) {
     );
     if (duplicate) {
       if (showToast) toast.error('Este nome já foi usado em outra marmita.');
+      return false;
+    }
+    if (requiresWorkLocation && !meal?.workLocation.trim()) {
+      if (showToast) {
+        toast.error('Informe onde essa pessoa está trabalhando.');
+      }
       return false;
     }
     return true;
@@ -533,8 +592,10 @@ export function NewOrderPage({ editMode = false }: { editMode?: boolean }) {
               <Link
                 to={
                   editMode && orderId
-                    ? requesterOrderPath(orderId)
-                    : ROUTES.REQUESTER_HOME
+                    ? detailPath(orderId)
+                    : specialMode
+                      ? ROUTES.SPECIAL_ORDER_NEW
+                      : ROUTES.REQUESTER_HOME
                 }
               >
                 <ArrowLeft className='size-4' />
@@ -542,7 +603,16 @@ export function NewOrderPage({ editMode = false }: { editMode?: boolean }) {
             </Button>
             <div>
               <h1 className='text-xl font-semibold tracking-tight'>
-                {orderCode ? `#${orderCode}` : 'Pedido'}
+                {orderCode
+                  ? `#${orderCode}`
+                  : specialMode
+                    ? 'Solicitação especial'
+                    : 'Pedido'}
+                {specialMode && existing?.companyName ? (
+                  <span className='ml-2 text-sm font-normal text-muted-foreground'>
+                    · {existing.companyName}
+                  </span>
+                ) : null}
               </h1>
               <p className='text-xs text-muted-foreground'>
                 {editMode ? 'Editar · ' : ''}
@@ -609,26 +679,58 @@ export function NewOrderPage({ editMode = false }: { editMode?: boolean }) {
                     <CardTitle className='text-base'>
                       Marmita {recipientIndex + 1}
                     </CardTitle>
-                    <CardDescription>Informe o nome completo</CardDescription>
+                    <CardDescription>
+                      {requiresWorkLocation
+                        ? 'Informe o nome e onde essa pessoa está trabalhando'
+                        : 'Informe o nome completo'}
+                    </CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    <Input
-                      id={`recipient-${recipientIndex}`}
-                      value={meals[recipientIndex].recipientName}
-                      autoComplete='name'
-                      aria-label='Nome completo'
-                      className='h-11'
-                      onChange={(e) =>
-                        setMeals((prev) =>
-                          prev.map((m, i) =>
-                            i === recipientIndex
-                              ? { ...m, recipientName: e.target.value }
-                              : m,
-                          ),
-                        )
-                      }
-                      placeholder='Nome completo'
-                    />
+                  <CardContent className='space-y-3'>
+                    <div className='space-y-1.5'>
+                      <Label htmlFor={`recipient-${recipientIndex}`}>
+                        Nome completo
+                      </Label>
+                      <Input
+                        id={`recipient-${recipientIndex}`}
+                        value={meals[recipientIndex].recipientName}
+                        autoComplete='name'
+                        aria-label='Nome completo'
+                        className='h-11'
+                        onChange={(e) =>
+                          setMeals((prev) =>
+                            prev.map((m, i) =>
+                              i === recipientIndex
+                                ? { ...m, recipientName: e.target.value }
+                                : m,
+                            ),
+                          )
+                        }
+                        placeholder='Nome completo'
+                      />
+                    </div>
+                    {requiresWorkLocation ? (
+                      <div className='space-y-1.5'>
+                        <Label htmlFor={`work-location-${recipientIndex}`}>
+                          Onde essa pessoa está trabalhando
+                        </Label>
+                        <Input
+                          id={`work-location-${recipientIndex}`}
+                          value={meals[recipientIndex].workLocation}
+                          aria-label='Local de trabalho'
+                          className='h-11'
+                          onChange={(e) =>
+                            setMeals((prev) =>
+                              prev.map((m, i) =>
+                                i === recipientIndex
+                                  ? { ...m, workLocation: e.target.value }
+                                  : m,
+                              ),
+                            )
+                          }
+                          placeholder='Ex.: obra, setor, unidade…'
+                        />
+                      </div>
+                    ) : null}
                   </CardContent>
                 </motion.div>
               </AnimatePresence>
@@ -719,6 +821,11 @@ export function NewOrderPage({ editMode = false }: { editMode?: boolean }) {
                     className='rounded-2xl border p-3 text-sm'
                   >
                     <p className='mb-2 font-medium'>{meal.recipientName}</p>
+                    {meal.workLocation.trim() ? (
+                      <p className='mb-2 text-xs text-muted-foreground'>
+                        Local: {meal.workLocation.trim()}
+                      </p>
+                    ) : null}
                     <ul className='flex flex-wrap gap-1.5'>
                       {meal.itemIds.map((id) => {
                         const item = availableItems.find((i) => i.id === id);
@@ -751,38 +858,6 @@ export function NewOrderPage({ editMode = false }: { editMode?: boolean }) {
                     ) : null}
                   </div>
                 ))}
-
-                <div className='space-y-2'>
-                  <p className='text-sm font-medium'>Como prefere receber?</p>
-                  <div className='grid grid-cols-2 gap-2'>
-                    <button
-                      type='button'
-                      onClick={() => setFulfillmentType('PICKUP')}
-                      className={cn(
-                        'flex flex-col items-center gap-2 rounded-2xl border px-3 py-4 text-sm transition',
-                        fulfillmentType === 'PICKUP'
-                          ? 'border-primary bg-primary/10 text-foreground'
-                          : 'border-border/60 bg-muted/30 text-muted-foreground',
-                      )}
-                    >
-                      <ShoppingBag className='size-5' />
-                      <span className='font-medium'>Retirada</span>
-                    </button>
-                    <button
-                      type='button'
-                      onClick={() => setFulfillmentType('DELIVERY')}
-                      className={cn(
-                        'flex flex-col items-center gap-2 rounded-2xl border px-3 py-4 text-sm transition',
-                        fulfillmentType === 'DELIVERY'
-                          ? 'border-primary bg-primary/10 text-foreground'
-                          : 'border-border/60 bg-muted/30 text-muted-foreground',
-                      )}
-                    >
-                      <Truck className='size-5' />
-                      <span className='font-medium'>Entrega</span>
-                    </button>
-                  </div>
-                </div>
               </CardContent>
             </Card>
           )}
@@ -887,10 +962,6 @@ export function NewOrderPage({ editMode = false }: { editMode?: boolean }) {
                 className='flex-1'
                 disabled={saveMutation.isPending || showOrderSuccess}
                 onClick={() => {
-                  if (!fulfillmentType) {
-                    toast.error('Escolha retirada ou entrega.');
-                    return;
-                  }
                   saveMutation.mutate();
                 }}
               >

@@ -15,6 +15,8 @@ const userSafeSelect = {
   role: true,
   active: true,
   mustChangePassword: true,
+  requiresWorkLocation: true,
+  avatarPath: true,
   emailChallengeDueAt: true,
   companyId: true,
   restaurantId: true,
@@ -107,12 +109,14 @@ export class UserPrismaRepository {
     role: $Enums.UserRole;
     active?: boolean;
     mustChangePassword?: boolean;
+    requiresWorkLocation?: boolean;
     companyId?: string | null;
     restaurantId?: string | null;
     phone?: string | null;
     cardNumber?: string | null;
     unit?: $Enums.Unit | null;
     emailChallengeDueAt?: Date | null;
+    avatarPath?: string | null;
   }): Promise<UserWithoutPassword> {
     return this.prisma.user.create({
       data: {
@@ -122,12 +126,14 @@ export class UserPrismaRepository {
         role: data.role,
         active: data.active ?? true,
         mustChangePassword: data.mustChangePassword ?? true,
+        requiresWorkLocation: data.requiresWorkLocation ?? false,
         companyId: data.companyId ?? null,
         restaurantId: data.restaurantId ?? null,
         phone: data.phone ?? null,
         cardNumber: data.cardNumber ?? null,
         unit: data.unit ?? null,
         emailChallengeDueAt: data.emailChallengeDueAt ?? null,
+        avatarPath: data.avatarPath ?? null,
       },
       select: userSafeSelect,
     });
@@ -140,8 +146,10 @@ export class UserPrismaRepository {
       phone?: string | null;
       role?: $Enums.UserRole;
       active?: boolean;
+      requiresWorkLocation?: boolean;
       companyId?: string | null;
       restaurantId?: string | null;
+      avatarPath?: string | null;
     },
   ): Promise<UserWithoutPassword> {
     return this.prisma.user.update({

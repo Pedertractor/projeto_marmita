@@ -33,6 +33,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { SearchField } from '@/components/ui/search-field';
@@ -46,15 +47,8 @@ import {
 } from '@/components/ui/table';
 import { TableEmptyRow, TableSection } from '@/components/ui/table-section';
 import { TableRowActions } from '@/components/ui/table-row-actions';
-
-function getInitials(name: string): string {
-  return name
-    .split(' ')
-    .map((n) => n[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
-}
+import { getInitials } from '@/utils/get-initials';
+import { resolveAvatarUrl } from '@/utils/avatar-url';
 
 type PendingAction =
   | { type: 'reset'; user: ListUser }
@@ -221,9 +215,15 @@ export function UserListPage() {
                 <TableRow key={u.id}>
                   <TableCell className='truncate'>
                     <div className='flex min-w-0 items-center gap-2'>
-                      <div className='flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary'>
-                        {getInitials(u.name)}
-                      </div>
+                      <Avatar className='size-8 shrink-0'>
+                        <AvatarImage
+                          src={resolveAvatarUrl(u.avatarUrl)}
+                          alt={u.name}
+                        />
+                        <AvatarFallback className='bg-primary/10 text-xs font-semibold text-primary'>
+                          {getInitials(u.name)}
+                        </AvatarFallback>
+                      </Avatar>
                       <span className='truncate font-medium' title={u.name}>
                         {u.name}
                       </span>

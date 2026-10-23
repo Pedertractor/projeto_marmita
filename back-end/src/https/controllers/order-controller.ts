@@ -5,6 +5,7 @@ import { OrderService } from '../../services/order-service.js';
 
 const mealSchema = z.object({
   recipientName: z.string(),
+  workLocation: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
   itemIds: z.array(z.string().uuid()),
 });
@@ -28,13 +29,15 @@ const ORDER_CODE_REGEX = /^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$/;
 const orderBodySchema = z.object({
   menuId: z.string().uuid(),
   quantity: z.number().int().positive(),
-  fulfillmentType: fulfillmentSchema,
+  fulfillmentType: fulfillmentSchema.nullable().optional(),
   orderCode: z.string().regex(ORDER_CODE_REGEX).optional(),
+  companyId: z.string().uuid().optional(),
   meals: z.array(mealSchemaStrict).min(1),
 });
 
 const startBodySchema = z.object({
   menuId: z.string().uuid(),
+  companyId: z.string().uuid().optional(),
 });
 
 export async function startOrder(
@@ -129,5 +132,38 @@ export async function changeOrderStatus(
   const service = new OrderService();
   const order = await service.changeStatus(request.user.sub, orderId, status);
   return reply.status(200).send({ order });
+}
+
+export async function startPrepAndPrint(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  const service = new OrderService();
+  const { pdf, filename } = await service.startPrepAndPrint(request.user.sub);
+  return reply
+    .header('Content-Type', 'application/pdf')
+    .header('Content-Disposition', `attachment; filename="${filename}"`)
+    .send(Buffer.from(pdf));
+}
+
+export async function markBatchReady(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  const service = new OrderService();
+  const result = await service.markBatchReady(request.user.sub);
+  return reply.status(200).send(result);
+}
+
+export async function simulatePrepPdf(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  const service = new OrderService();
+  const { pdf, filename } = await service.simulatePrepPdf(request.user.sub);
+  return reply
+    .header('Content-Type', 'application/pdf')
+    .header('Content-Disposition', `attachment; filename="${filename}"`)
+    .send(Buffer.from(pdf));
 }
 

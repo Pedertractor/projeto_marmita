@@ -30,6 +30,8 @@ COPY --from=build /usr/src/app/prisma.config.ts ./prisma.config.ts
 # Seed roda com tsx e importa integrações em src/ (a API em produção usa só dist/).
 COPY --from=build /usr/src/app/src ./src
 
+VOLUME /usr/src/app/uploads
+
 # porta que vai ficar exposta para acessar o back-end
 EXPOSE 5027
 

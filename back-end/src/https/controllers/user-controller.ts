@@ -15,6 +15,7 @@ export async function register(request: FastifyRequest, reply: FastifyReply) {
     companyId: z.string().uuid().nullable().optional(),
     restaurantId: z.string().uuid().nullable().optional(),
     active: z.boolean().optional(),
+    requiresWorkLocation: z.boolean().optional(),
   });
 
   const body = bodySchema.parse(request.body);
@@ -80,6 +81,19 @@ export async function getMe(request: FastifyRequest, reply: FastifyReply) {
   return reply.status(200).send({ user });
 }
 
+export async function updateMyAvatar(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  const bodySchema = z.object({
+    avatar: z.string().min(1, 'Envie sua foto'),
+  });
+  const body = bodySchema.parse(request.body);
+  const userService = new UserService();
+  const user = await userService.updateMyAvatar(request.user.sub, body.avatar);
+  return reply.status(200).send({ user });
+}
+
 export async function changePassword(
   request: FastifyRequest,
   reply: FastifyReply,
@@ -124,6 +138,7 @@ export async function updateUserByAdmin(
     phone: z.string().nullable().optional(),
     role: z.enum($Enums.UserRole).optional(),
     active: z.boolean().optional(),
+    requiresWorkLocation: z.boolean().optional(),
     companyId: z.string().uuid().nullable().optional(),
     restaurantId: z.string().uuid().nullable().optional(),
   });
@@ -194,6 +209,9 @@ export async function updateUserByAdmin(
         ...(body.name !== undefined ? { name: body.name } : {}),
         ...(body.phone !== undefined ? { phone: body.phone } : {}),
         ...(body.active !== undefined ? { active: body.active } : {}),
+        ...(body.requiresWorkLocation !== undefined
+          ? { requiresWorkLocation: body.requiresWorkLocation }
+          : {}),
         ...(allowRoleChange && body.role !== undefined
           ? { role: body.role }
           : {}),

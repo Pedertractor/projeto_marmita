@@ -8,6 +8,7 @@ import {
 } from '@/services/registration-requests';
 import { isSyntheticInternalEmail } from '@/constants/company-kind';
 import { formatDateTime } from '@/utils/format';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
@@ -19,6 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -32,6 +34,8 @@ import {
 import { TableEmptyRow, TableSection } from '@/components/ui/table-section';
 import { TableRowActions } from '@/components/ui/table-row-actions';
 import { cn } from '@/lib/utils';
+import { getInitials } from '@/utils/get-initials';
+import { resolveAvatarUrl } from '@/utils/avatar-url';
 
 const STATUS_TABS: Array<{ value: RegistrationStatus | 'ALL'; label: string }> =
   [
@@ -86,6 +90,7 @@ export function RegistrationRequestsPage() {
   );
   const [mealPriceAmount, setMealPriceAmount] = useState('20');
   const [approveCompanyName, setApproveCompanyName] = useState('');
+  const [requiresWorkLocation, setRequiresWorkLocation] = useState(false);
   const [rejectNote, setRejectNote] = useState('');
 
   const statusFilter = tab === 'ALL' ? undefined : tab;
@@ -111,6 +116,7 @@ export function RegistrationRequestsPage() {
           approveItem?.companyKind === 'OTHER'
             ? approveCompanyName.trim() || undefined
             : undefined,
+        requiresWorkLocation,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['registration-requests'] });
@@ -119,6 +125,7 @@ export function RegistrationRequestsPage() {
       queryClient.invalidateQueries({ queryKey: ['meal-price'] });
       toast.success('Solicitação aprovada.');
       setApproveItem(null);
+      setRequiresWorkLocation(false);
     },
   });
 
@@ -139,6 +146,7 @@ export function RegistrationRequestsPage() {
     setApproveItem(item);
     setMealPriceAmount('20');
     setApproveCompanyName(item.companyName);
+    setRequiresWorkLocation(false);
   }
 
   function openReject(item: RegistrationRequest) {
@@ -204,11 +212,19 @@ export function RegistrationRequestsPage() {
               ) : null}
               {pageItems.map((row) => (
                 <TableRow key={row.id}>
-                  <TableCell
-                    className='truncate font-medium'
-                    title={row.name}
-                  >
-                    {row.name}
+                  <TableCell className='truncate font-medium' title={row.name}>
+                    <div className='flex min-w-0 items-center gap-2.5'>
+                      <Avatar className='size-8 shrink-0'>
+                        <AvatarImage
+                          src={resolveAvatarUrl(row.avatarUrl)}
+                          alt={row.name}
+                        />
+                        <AvatarFallback className='text-xs'>
+                          {getInitials(row.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className='truncate'>{row.name}</span>
+                    </div>
                   </TableCell>
                   <TableCell className='truncate' title={registrationEmailDisplay(row)}>
                     {registrationEmailDisplay(row)}
@@ -274,10 +290,21 @@ export function RegistrationRequestsPage() {
             <DialogTitle>Aprovar solicitação</DialogTitle>
           </DialogHeader>
           <div className='space-y-3 py-2'>
-            <p className='text-sm text-muted-foreground'>
-              {approveItem?.name} ·{' '}
-              {approveItem ? registrationEmailDisplay(approveItem) : ''}
-            </p>
+            <div className='flex items-center gap-3'>
+              <Avatar className='size-14 shrink-0'>
+                <AvatarImage
+                  src={resolveAvatarUrl(approveItem?.avatarUrl)}
+                  alt={approveItem?.name ?? ''}
+                />
+                <AvatarFallback>
+                  {approveItem ? getInitials(approveItem.name) : '?'}
+                </AvatarFallback>
+              </Avatar>
+              <p className='text-sm text-muted-foreground'>
+                {approveItem?.name} ·{' '}
+                {approveItem ? registrationEmailDisplay(approveItem) : ''}
+              </p>
+            </div>
             {approveItem?.companyKind === 'OTHER' ? (
               <div className='space-y-1.5'>
                 <Label htmlFor='approve-company'>Nome da empresa</Label>
@@ -301,6 +328,22 @@ export function RegistrationRequestsPage() {
                 onChange={(e) => setMealPriceAmount(e.target.value)}
                 required
               />
+            </div>
+            <div className='flex items-start gap-2 pt-1'>
+              <Checkbox
+                id='approve-work-location'
+                checked={requiresWorkLocation}
+                onCheckedChange={(v) => setRequiresWorkLocation(Boolean(v))}
+              />
+              <div className='space-y-0.5'>
+                <Label htmlFor='approve-work-location' className='font-normal'>
+                  Exigir local de trabalho nas marmitas
+                </Label>
+                <p className='text-xs text-muted-foreground'>
+                  Se marcado, este usuário precisará informar onde cada pessoa
+                  está trabalhando ao solicitar marmitas.
+                </p>
+              </div>
             </div>
           </div>
           <DialogFooter>
@@ -330,10 +373,21 @@ export function RegistrationRequestsPage() {
             <DialogTitle>Rejeitar solicitação</DialogTitle>
           </DialogHeader>
           <div className='space-y-3 py-2'>
-            <p className='text-sm text-muted-foreground'>
-              {rejectItem?.name} ·{' '}
-              {rejectItem ? registrationEmailDisplay(rejectItem) : ''}
-            </p>
+            <div className='flex items-center gap-3'>
+              <Avatar className='size-14 shrink-0'>
+                <AvatarImage
+                  src={resolveAvatarUrl(rejectItem?.avatarUrl)}
+                  alt={rejectItem?.name ?? ''}
+                />
+                <AvatarFallback>
+                  {rejectItem ? getInitials(rejectItem.name) : '?'}
+                </AvatarFallback>
+              </Avatar>
+              <p className='text-sm text-muted-foreground'>
+                {rejectItem?.name} ·{' '}
+                {rejectItem ? registrationEmailDisplay(rejectItem) : ''}
+              </p>
+            </div>
             <div className='space-y-1.5'>
               <Label htmlFor='reject-note'>Motivo (opcional)</Label>
               <Textarea

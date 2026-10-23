@@ -23,6 +23,7 @@ export interface RegistrationRequest {
   cardNumber?: string | null;
   unit?: Unit | null;
   employeeExternalId?: string | null;
+  avatarUrl?: string | null;
   status: RegistrationStatus;
   reviewedById?: string | null;
   reviewedAt?: string | null;
@@ -46,6 +47,7 @@ export interface CreateRegistrationPayload {
   companyKind: CompanyKind;
   companyName?: string;
   cardNumber?: string;
+  avatar: string;
 }
 
 const BASE = '/registration-requests';
@@ -94,7 +96,11 @@ export const registrationRequestsApi = {
 
   async approve(
     id: string,
-    payload: { mealPriceAmount: number; companyName?: string },
+    payload: {
+      mealPriceAmount: number;
+      companyName?: string;
+      requiresWorkLocation?: boolean;
+    },
   ): Promise<unknown> {
     const { data } = await api.post(`${BASE}/${id}/approve`, payload);
     return data;

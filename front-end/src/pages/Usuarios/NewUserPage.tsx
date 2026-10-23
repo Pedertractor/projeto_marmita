@@ -22,6 +22,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -42,6 +43,7 @@ export function NewUserPage() {
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<UserRole>('REQUESTER');
   const [companyId, setCompanyId] = useState<string>('');
+  const [requiresWorkLocation, setRequiresWorkLocation] = useState(false);
 
   const { data: companies = [] } = useQuery({
     queryKey: ['companies'],
@@ -71,6 +73,8 @@ export function NewUserPage() {
         password,
         role,
         companyId: role === 'REQUESTER' ? companyId || null : null,
+        requiresWorkLocation:
+          role === 'REQUESTER' ? requiresWorkLocation : false,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
@@ -163,6 +167,24 @@ export function NewUserPage() {
                     ))}
                 </SelectContent>
               </Select>
+            </div>
+          ) : null}
+          {needsCompany ? (
+            <div className='flex items-start gap-2 pt-1'>
+              <Checkbox
+                id='new-work-location'
+                checked={requiresWorkLocation}
+                onCheckedChange={(v) => setRequiresWorkLocation(Boolean(v))}
+              />
+              <div className='space-y-0.5'>
+                <Label htmlFor='new-work-location' className='font-normal'>
+                  Exigir local de trabalho nas marmitas
+                </Label>
+                <p className='text-xs text-muted-foreground'>
+                  Ao solicitar, este usuário informa onde cada pessoa está
+                  trabalhando.
+                </p>
+              </div>
             </div>
           ) : null}
         </CardContent>

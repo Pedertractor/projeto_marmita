@@ -30,7 +30,7 @@ export function MenuItemToggleButton({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        'flex w-full items-start gap-2.5 rounded-2xl border px-3 py-2.5 text-left text-sm transition',
+        'flex w-full items-center gap-2.5 rounded-2xl border px-3 py-2.5 text-left text-sm transition',
         checked
           ? 'border-primary/40 bg-primary/10 text-foreground'
           : 'border-border/60 bg-muted/40 text-muted-foreground',
@@ -50,7 +50,7 @@ export function MenuItemToggleButton({
         />
       </span>
       <span className='min-w-0 flex-1'>
-        <span className='block truncate font-medium'>{item.name}</span>
+        <span className='block truncate leading-none font-medium'>{item.name}</span>
         {item.description?.trim() ? (
           <span className='mt-0.5 block line-clamp-2 text-xs text-muted-foreground'>
             {item.description}
@@ -59,7 +59,7 @@ export function MenuItemToggleButton({
       </span>
       <span
         className={cn(
-          'mt-1.5 flex size-5 shrink-0 items-center justify-center rounded-full border',
+          'flex size-5 shrink-0 items-center justify-center rounded-full border',
           checked
             ? 'border-primary bg-primary text-primary-foreground'
             : 'border-muted-foreground/40',

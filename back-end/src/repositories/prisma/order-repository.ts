@@ -71,6 +71,7 @@ export type OrderListFilters = {
 
 export type OrderMealWrite = {
   recipientName: string;
+  workLocation?: string | null;
   notes?: string | null;
   sortOrder: number;
   items: Array<{
@@ -94,12 +95,14 @@ export class OrderPrismaRepository {
   async findDraftForRequester(
     requesterId: string,
     menuDate: Date,
+    options?: { companyId?: string },
   ): Promise<OrderFull | null> {
     return this.prisma.order.findFirst({
       where: {
         requesterId,
         menuDate,
         status: $Enums.OrderStatus.DRAFT,
+        ...(options?.companyId ? { companyId: options.companyId } : {}),
       },
       include: orderFullInclude,
       orderBy: { createdAt: 'desc' },
@@ -128,6 +131,65 @@ export class OrderPrismaRepository {
 
     return this.prisma.order.findMany({
       where,
+      include: orderFullInclude,
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /**
+   * RH: pedidos enviados de todos + rascunhos especiais do próprio usuário.
+   */
+  async findManyForRh(
+    rhUserId: string,
+    filters: Omit<OrderListFilters, 'requesterId' | 'excludeDraft'> = {},
+  ): Promise<OrderFull[]> {
+    const dateFilter: Prisma.OrderWhereInput = {};
+    if (filters.menuDate) dateFilter.menuDate = filters.menuDate;
+    if (filters.fromDate || filters.toDate) {
+      dateFilter.menuDate = {
+        ...(filters.fromDate ? { gte: filters.fromDate } : {}),
+        ...(filters.toDate ? { lte: filters.toDate } : {}),
+      };
+    }
+    if (filters.companyId) dateFilter.companyId = filters.companyId;
+    if (filters.restaurantId) dateFilter.restaurantId = filters.restaurantId;
+
+    if (filters.status === $Enums.OrderStatus.DRAFT) {
+      return this.prisma.order.findMany({
+        where: {
+          ...dateFilter,
+          status: $Enums.OrderStatus.DRAFT,
+          requesterId: rhUserId,
+          isSpecial: true,
+        },
+        include: orderFullInclude,
+        orderBy: { createdAt: 'desc' },
+      });
+    }
+
+    if (filters.status) {
+      return this.prisma.order.findMany({
+        where: {
+          ...dateFilter,
+          status: filters.status,
+        },
+        include: orderFullInclude,
+        orderBy: { createdAt: 'desc' },
+      });
+    }
+
+    return this.prisma.order.findMany({
+      where: {
+        ...dateFilter,
+        OR: [
+          { status: { not: $Enums.OrderStatus.DRAFT } },
+          {
+            status: $Enums.OrderStatus.DRAFT,
+            requesterId: rhUserId,
+            isSpecial: true,
+          },
+        ],
+      },
       include: orderFullInclude,
       orderBy: { createdAt: 'desc' },
     });
@@ -180,6 +242,7 @@ export class OrderPrismaRepository {
     menuId: string;
     menuDate: Date;
     unitPrice: Prisma.Decimal | number | string;
+    isSpecial?: boolean;
   }): Promise<OrderFull> {
     return this.createWithUniqueCode({
       requester: { connect: { id: data.requesterId } },
@@ -194,6 +257,7 @@ export class OrderPrismaRepository {
       totalPrice: data.unitPrice,
       status: $Enums.OrderStatus.DRAFT,
       fulfillmentType: null,
+      isSpecial: data.isSpecial ?? false,
     });
   }
 
@@ -209,10 +273,11 @@ export class OrderPrismaRepository {
     quantity: number;
     unitPrice: Prisma.Decimal | number | string;
     totalPrice: Prisma.Decimal | number | string;
-    fulfillmentType: $Enums.OrderFulfillmentType;
+    fulfillmentType?: $Enums.OrderFulfillmentType | null;
     meals: OrderMealWrite[];
     changedById: string;
     orderCode?: string;
+    isSpecial?: boolean;
   }): Promise<OrderFull> {
     return this.createWithUniqueCode(
       {
@@ -226,11 +291,13 @@ export class OrderPrismaRepository {
         quantity: data.quantity,
         unitPrice: data.unitPrice,
         totalPrice: data.totalPrice,
-        fulfillmentType: data.fulfillmentType,
+        fulfillmentType: data.fulfillmentType ?? null,
         status: $Enums.OrderStatus.SUBMITTED,
+        isSpecial: data.isSpecial ?? false,
         meals: {
           create: data.meals.map((meal) => ({
             recipientName: meal.recipientName,
+            workLocation: meal.workLocation ?? null,
             notes: meal.notes ?? null,
             sortOrder: meal.sortOrder,
             items: {
@@ -283,6 +350,7 @@ export class OrderPrismaRepository {
         meals: {
           create: data.meals.map((meal) => ({
             recipientName: meal.recipientName,
+            workLocation: meal.workLocation ?? null,
             notes: meal.notes ?? null,
             sortOrder: meal.sortOrder,
             items: {

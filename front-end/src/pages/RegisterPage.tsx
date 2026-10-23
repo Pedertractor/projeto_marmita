@@ -5,6 +5,7 @@ import { CheckCircle2, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { MarmitaSoupIcon } from '@/components/marmita-soup-icon';
 import { AuthAttribution } from '@/components/auth-attribution';
 import { AuthFoodRainBackground } from '@/components/auth-food-rain';
+import { AvatarPicker } from '@/components/avatar-picker';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   COMPANY_KIND_OPTIONS,
@@ -59,6 +60,7 @@ export function RegisterPage() {
   const [emailBlockMessage, setEmailBlockMessage] = useState<string | null>(
     null,
   );
+  const [avatar, setAvatar] = useState<string | null>(null);
 
   const isInternal = isInternalCompanyKind(companyKind);
 
@@ -188,6 +190,10 @@ export function RegisterPage() {
       toast.error('Informe o e-mail.');
       return;
     }
+    if (!avatar) {
+      toast.error('Adicione sua foto para continuar.');
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -196,6 +202,7 @@ export function RegisterPage() {
         password,
         companyKind,
         email: trimmedEmail,
+        avatar,
         ...(isInternal
           ? {
               cardNumber: cardNumber.trim(),
@@ -406,6 +413,13 @@ export function RegisterPage() {
                     ) : (
                       <form onSubmit={handleSubmit}>
                         <FieldGroup className='gap-5 md:gap-7'>
+                          <AvatarPicker
+                            value={avatar}
+                            onChange={setAvatar}
+                            name={name || employee?.name || ''}
+                            required
+                          />
+
                           <Field>
                             <FieldLabel>Empresa</FieldLabel>
                             <div
@@ -685,6 +699,7 @@ export function RegisterPage() {
                                   submitting ||
                                   checkingEmail ||
                                   Boolean(emailBlockMessage) ||
+                                  !avatar ||
                                   (isInternal
                                     ? !employee ||
                                       validating ||

@@ -10,7 +10,9 @@ export interface UserDetail {
   unit?: string | null;
   role: UserRole;
   mustChangePassword: boolean;
+  requiresWorkLocation?: boolean;
   active: boolean;
+  avatarUrl?: string | null;
   companyId?: string | null;
   restaurantId?: string | null;
   company?: {
@@ -30,6 +32,7 @@ export interface RegisterUserPayload {
   companyId?: string | null;
   restaurantId?: string | null;
   active?: boolean;
+  requiresWorkLocation?: boolean;
 }
 
 export interface UpdateUserByAdminPayload {
@@ -37,6 +40,7 @@ export interface UpdateUserByAdminPayload {
   phone?: string | null;
   role?: UserRole;
   active?: boolean;
+  requiresWorkLocation?: boolean;
   companyId?: string | null;
   restaurantId?: string | null;
 }

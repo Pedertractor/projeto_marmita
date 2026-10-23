@@ -17,6 +17,7 @@ import { ordersApi } from '@/services/orders';
 import { ROUTES, requesterOrderPath, requesterOrderWizardPath } from '@/routes/constants';
 import type { Order } from '@/types/domain';
 import { todayISODate, formatDate } from '@/utils/format';
+import { isRequesterOrderWindowOpen } from '@/utils/order-status';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -37,6 +38,14 @@ export function RequesterHomePage() {
   const firstName = user?.name?.trim().split(/\s+/)[0];
   const [guideOpen, setGuideOpen] = useState(false);
   const [simulatingChallenge, setSimulatingChallenge] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const windowOpen = isRequesterOrderWindowOpen(new Date(now));
 
   async function simulateEmailChallenge() {
     setSimulatingChallenge(true);
@@ -71,7 +80,8 @@ export function RequesterHomePage() {
     ? 'Solicitar mais marmitas'
     : 'Solicitar marmitas';
   const availableItems = menu?.items.filter((item) => item.available) ?? [];
-  const canRequest = Boolean(menu && availableItems.length > 0);
+  const canRequest =
+    Boolean(menu && availableItems.length > 0) && windowOpen;
   const waitingForMenu = menuLoading || !menu;
   const todayOrderHref = todayOrder
     ? todayOrder.status === 'DRAFT'
@@ -205,8 +215,18 @@ export function RequesterHomePage() {
                       </Link>
                     </Button>
                   ) : (
-                    <Button className='w-full max-w-full' disabled>
-                      {requestLabel}
+                    <Button
+                      className='w-full max-w-full'
+                      disabled
+                      title={
+                        !windowOpen && availableItems.length > 0
+                          ? 'Fora de horário'
+                          : undefined
+                      }
+                    >
+                      {!windowOpen && availableItems.length > 0
+                        ? 'Fora de horário'
+                        : requestLabel}
                     </Button>
                   )}
                 </div>

@@ -19,6 +19,7 @@ const envSchema = z.object({
   EMAIL_AUTOMACAO: z.string().min(1, 'EMAIL_AUTOMACAO é obrigatório'),
   PASSWORD_AUTOMACAO: z.string().min(1, 'PASSWORD_AUTOMACAO é obrigatório'),
   FRONT_END_URL: z.string().default('http://localhost:5173'),
+  UPLOADS_DIR: z.string().default('./uploads'),
 });
 
 const _env = envSchema.safeParse(process.env);

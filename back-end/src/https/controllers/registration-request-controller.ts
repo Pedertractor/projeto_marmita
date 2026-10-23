@@ -43,6 +43,7 @@ export async function createRegistrationRequest(
       companyKind: z.enum($Enums.CompanyKind),
       companyName: z.string().optional(),
       cardNumber: z.string().optional(),
+      avatar: z.string().min(1, 'Envie sua foto'),
     })
     .superRefine((data, ctx) => {
       const internal =
@@ -96,6 +97,7 @@ export async function approveRegistrationRequest(
   const bodySchema = z.object({
     mealPriceAmount: z.number().positive('Informe o valor da marmita'),
     companyName: z.string().optional(),
+    requiresWorkLocation: z.boolean().optional(),
   });
   const { id } = paramsSchema.parse(request.params);
   const body = bodySchema.parse(request.body);

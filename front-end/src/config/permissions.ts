@@ -87,6 +87,11 @@ export function isRequester(role: UserRole): boolean {
   return role === 'REQUESTER';
 }
 
+/** RH cria solicitação especial a qualquer horário. */
+export function canCreateSpecialOrder(role: UserRole): boolean {
+  return role === 'RH';
+}
+
 export function isAdminShellRole(role: UserRole): boolean {
   return (
     role === 'SUPER_ADMIN' || role === 'RH' || role === 'RESTAURANT'

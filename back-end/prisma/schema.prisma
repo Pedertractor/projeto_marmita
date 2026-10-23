@@ -84,6 +84,8 @@ model User {
   role               UserRole
   active                  Boolean   @default(true)
   mustChangePassword      Boolean   @default(true)
+  requiresWorkLocation    Boolean   @default(false)
+  avatarPath              String?
   emailChallengeDueAt     DateTime?
   emailVerifiedAt         DateTime?
   emailChallengeCodeHash  String?
@@ -178,6 +180,7 @@ model RegistrationRequest {
   cardNumber         String?
   unit               Unit?
   employeeExternalId String?
+  avatarPath         String?
   status             RegistrationStatus @default(PENDING)
   reviewedById       String?
   reviewedAt         DateTime?
@@ -205,6 +208,7 @@ model Order {
   menuDate        DateTime              @db.Date
   status          OrderStatus           @default(DRAFT)
   fulfillmentType OrderFulfillmentType?
+  isSpecial       Boolean               @default(false)
   quantity        Int
   unitPrice       Decimal               @db.Decimal(10, 2)
   totalPrice      Decimal               @db.Decimal(10, 2)
@@ -232,6 +236,7 @@ model OrderMeal {
   id            String  @id @default(uuid())
   orderId       String
   recipientName String
+  workLocation  String?
   notes         String?
   sortOrder     Int     @default(0)
 

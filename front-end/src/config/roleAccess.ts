@@ -10,6 +10,7 @@ import {
   canAccessRestaurantDashboard,
   canAccessRhDashboard,
   canAccessUsersArea,
+  canCreateSpecialOrder,
   canManageMenus,
   isRequester,
 } from '@/config/permissions';
@@ -17,6 +18,7 @@ import {
 const RH_PATHS: readonly string[] = [
   ROUTES.DASHBOARD_RH,
   ROUTES.ORDERS,
+  ROUTES.SPECIAL_ORDER_NEW,
   ROUTES.COMPANIES,
   ROUTES.MEAL_PRICES,
   ROUTES.REGISTRATIONS,
@@ -87,6 +89,14 @@ export function pathMatchesNavSegment(pathname: string, navPath: string): boolea
   if (navPath === ROUTES.REQUESTER_HOME) {
     return normalized === ROUTES.REQUESTER_HOME;
   }
+  if (navPath === ROUTES.ORDERS) {
+    if (
+      normalized === ROUTES.SPECIAL_ORDER_NEW ||
+      normalized.startsWith(`${ROUTES.SPECIAL_ORDER_NEW}/`)
+    ) {
+      return false;
+    }
+  }
   if (normalized === navPath) return true;
   if (normalized.startsWith(`${navPath}/`)) return true;
   return false;
@@ -99,6 +109,15 @@ export function pathMatchesNavExact(pathname: string, navPath: string): boolean 
   }
   if (navPath === ROUTES.REQUESTER_HOME) {
     return normalized === ROUTES.REQUESTER_HOME;
+  }
+  // /pedidos não deve destacar quando estamos em /pedidos/especial
+  if (navPath === ROUTES.ORDERS) {
+    if (
+      normalized === ROUTES.SPECIAL_ORDER_NEW ||
+      normalized.startsWith(`${ROUTES.SPECIAL_ORDER_NEW}/`)
+    ) {
+      return false;
+    }
   }
   if (normalized === navPath) return true;
   if (normalized.startsWith(`${navPath}/`)) return true;
@@ -176,6 +195,13 @@ export function canRoleAccessPath(role: UserRole, pathname: string): boolean {
 
   if (normalized === ROUTES.AUDIT || normalized.startsWith(`${ROUTES.AUDIT}/`)) {
     return canAccessAudit(role);
+  }
+
+  if (
+    normalized === ROUTES.SPECIAL_ORDER_NEW ||
+    normalized.startsWith(`${ROUTES.SPECIAL_ORDER_NEW}/`)
+  ) {
+    return canCreateSpecialOrder(role);
   }
 
   if (

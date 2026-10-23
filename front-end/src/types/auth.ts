@@ -32,9 +32,11 @@ export interface AuthUser {
   role: UserRole;
   active: boolean;
   mustChangePassword: boolean;
+  requiresWorkLocation?: boolean;
   needsEmailChallenge: boolean;
   hasRealEmail: boolean;
   maskedEmail: string | null;
+  avatarUrl?: string | null;
   companyId?: string | null;
   restaurantId?: string | null;
   company?: AuthCompany | null;
@@ -51,6 +53,8 @@ export interface ListUser {
   unit?: Unit | null;
   role: UserRole;
   active: boolean;
+  requiresWorkLocation?: boolean;
+  avatarUrl?: string | null;
   companyId?: string | null;
   restaurantId?: string | null;
   company?: AuthCompany | null;

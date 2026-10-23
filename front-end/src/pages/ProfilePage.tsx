@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/useAuth';
 import { authApi } from '@/services/auth';
 import { isSyntheticInternalEmail } from '@/constants/company-kind';
 import { formattedRoles } from '@/utils/roles';
+import { AvatarPicker } from '@/components/avatar-picker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,6 +20,7 @@ export function ProfilePage() {
   const { user, updateUser } = useAuth();
   const [email, setEmail] = useState('');
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -67,6 +69,26 @@ export function ProfilePage() {
     }
   }
 
+  async function handleAvatarChange(dataUrl: string) {
+    setUploadingAvatar(true);
+    try {
+      const result = await authApi.updateMyAvatar(dataUrl);
+      updateUser(result.user);
+      toast.success('Foto atualizada com sucesso.');
+    } catch (error) {
+      const message =
+        error &&
+        typeof error === 'object' &&
+        'message' in error &&
+        typeof error.message === 'string'
+          ? error.message
+          : 'Não foi possível atualizar a foto.';
+      toast.error(message);
+    } finally {
+      setUploadingAvatar(false);
+    }
+  }
+
   return (
     <div className='mx-auto w-full max-w-lg'>
       <Card>
@@ -75,6 +97,15 @@ export function ProfilePage() {
           <CardDescription>Seus dados de acesso</CardDescription>
         </CardHeader>
         <CardContent className='space-y-5 text-sm'>
+          <AvatarPicker
+            value={user.avatarUrl}
+            onChange={(dataUrl) => void handleAvatarChange(dataUrl)}
+            name={user.name}
+            uploading={uploadingAvatar}
+            label='Foto de perfil'
+            compact
+          />
+
           <div>
             <p className='text-muted-foreground'>Nome</p>
             <p className='font-medium'>{user.name}</p>

@@ -13,6 +13,8 @@ import {
 import { useAuth } from '@/contexts/useAuth';
 import { getSidebarNavItemsForRole } from '@/config/roleAccess';
 import { formattedRoles } from '@/utils/roles';
+import { getInitials } from '@/utils/get-initials';
+import { resolveAvatarUrl } from '@/utils/avatar-url';
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user } = useAuth();
@@ -30,14 +32,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       }))
     : [];
 
-  const initials = user?.name
-    ? user.name
-        .split(' ')
-        .map((n) => n[0])
-        .slice(0, 2)
-        .join('')
-        .toUpperCase()
-    : 'ME';
+  const initials = user?.name ? getInitials(user.name, 'ME') : 'ME';
 
   return (
     <Sidebar collapsible='icon' {...props}>
@@ -56,7 +51,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           user={{
             name: user?.name ?? 'Usuário',
             email: user?.email ?? '',
-            avatar: '',
+            avatar: resolveAvatarUrl(user?.avatarUrl) ?? '',
             initials,
           }}
         />

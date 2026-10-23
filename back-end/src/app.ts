@@ -1,11 +1,14 @@
+import path from 'node:path';
 import Fastify from 'fastify';
 import jwt from '@fastify/jwt';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
+import fastifyStatic from '@fastify/static';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import { allowedCorsOrigins, env } from './env/index.js';
+import { ensureUploadsDirs } from './lib/avatar-storage.js';
 import { apiErrorHandler } from './https/errors/error-handler.js';
 import { mainRoutes } from './https/routes/main-route.js';
 import { healthRoutes } from './https/routes/health-route.js';
@@ -16,6 +19,8 @@ export const app = Fastify({
   trustProxy: true,
   bodyLimit: 1_048_576,
 });
+
+await ensureUploadsDirs();
 
 app.register(helmet, {
   contentSecurityPolicy: env.NODE_ENV === 'production',
@@ -32,6 +37,12 @@ app.register(cors, {
   },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
+});
+
+app.register(fastifyStatic, {
+  root: path.resolve(env.UPLOADS_DIR),
+  prefix: '/uploads/',
+  decorateReply: false,
 });
 
 app.register(rateLimit, {

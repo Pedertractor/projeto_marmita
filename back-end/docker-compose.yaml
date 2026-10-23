@@ -8,6 +8,8 @@ services:
   #     - 5027:5027
   #   env_file:
   #     - .env
+  #   volumes:
+  #     - solicitacao_marmita_uploads:/usr/src/app/uploads
   #   depends_on:
   #     - solicitacao-marmita-database
   #   networks:
@@ -32,6 +34,9 @@ services:
 #   solicitacao_marmita_postgres_data:
 #     external: true
 #     name: solicitacao_marmita_postgres_data
+#   solicitacao_marmita_uploads:
+#     external: true
+#     name: solicitacao_marmita_uploads
 
 # networks:
 #   marmita-network:

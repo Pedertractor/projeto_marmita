@@ -4,9 +4,13 @@ import { useQuery } from '@tanstack/react-query';
 import { Loader2 } from 'lucide-react';
 
 import { ordersApi } from '@/services/orders';
-import { adminOrderPath } from '@/routes/constants';
-import { canViewOrderPricing } from '@/config/permissions';
+import {
+  adminOrderPath,
+  specialOrderWizardPath,
+} from '@/routes/constants';
+import { canCreateSpecialOrder, canViewOrderPricing } from '@/config/permissions';
 import { useAuth } from '@/contexts/useAuth';
+import { OrderSpecialBadge } from '@/components/OrderSpecialBadge';
 import {
   formatCurrency,
   formatDate,
@@ -123,7 +127,22 @@ export function OrdersListPage() {
     return sortedOrders.slice(start, start + TABLE_PAGE_SIZE);
   }, [sortedOrders, safePage]);
 
-  const openOrderDetail = (orderId: string) => {
+  const openOrderDetail = (order: {
+    id: string;
+    status: OrderStatus;
+    isSpecial?: boolean;
+    requesterId: string;
+  }) => {
+    if (
+      order.status === 'DRAFT' &&
+      order.isSpecial &&
+      user?.role &&
+      canCreateSpecialOrder(user.role) &&
+      order.requesterId === user.id
+    ) {
+      navigate(specialOrderWizardPath(order.id));
+      return;
+    }
     const returnTo = ordersListPath({
       menuDate,
       status,
@@ -131,7 +150,7 @@ export function OrdersListPage() {
       sort,
       sortDir,
     });
-    navigate(adminOrderPath(orderId), {
+    navigate(adminOrderPath(order.id), {
       state: { ordersListReturnTo: returnTo } satisfies OrdersListLocationState,
     });
   };
@@ -200,13 +219,18 @@ export function OrdersListPage() {
               <Card
                 key={order.id}
                 className='cursor-pointer transition hover:bg-primary/4'
-                onClick={() => openOrderDetail(order.id)}
+                onClick={() => openOrderDetail(order)}
               >
                 <CardContent className='space-y-2 px-4 py-3'>
                   <div className='flex items-start justify-between gap-2'>
-                    <p className='text-sm font-semibold tracking-tight'>
-                      #{order.orderCode}
-                    </p>
+                    <div className='flex min-w-0 flex-wrap items-center gap-1.5'>
+                      <p className='text-sm font-semibold tracking-tight'>
+                        #{order.orderCode}
+                      </p>
+                      {order.isSpecial ? (
+                        <OrderSpecialBadge compact />
+                      ) : null}
+                    </div>
                     <OrderStatusBadge status={order.status} compact />
                   </div>
                   <p className='text-xs text-muted-foreground'>
@@ -325,10 +349,15 @@ export function OrdersListPage() {
                 <TableRow
                   key={order.id}
                   className='cursor-pointer hover:bg-primary/4'
-                  onClick={() => openOrderDetail(order.id)}
+                  onClick={() => openOrderDetail(order)}
                 >
                   <TableCell className='px-3 py-2 text-sm font-medium tracking-tight'>
-                    #{order.orderCode}
+                    <span className='inline-flex flex-wrap items-center gap-1.5'>
+                      #{order.orderCode}
+                      {order.isSpecial ? (
+                        <OrderSpecialBadge compact />
+                      ) : null}
+                    </span>
                   </TableCell>
                   <TableCell className='px-3 py-2 text-sm'>
                     {formatDate(order.menuDate)}

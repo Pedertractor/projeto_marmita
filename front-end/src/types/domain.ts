@@ -69,6 +69,7 @@ export interface OrderMeal {
   id: string;
   orderId: string;
   recipientName: string;
+  workLocation?: string | null;
   notes?: string | null;
   sortOrder: number;
   items: OrderMealItem[];
@@ -95,6 +96,8 @@ export interface Order {
   menuDate: string;
   status: OrderStatus;
   fulfillmentType?: OrderFulfillmentType | null;
+  /** Pedido criado pelo RH fora da janela normal. */
+  isSpecial?: boolean;
   quantity: number;
   /** Ausente para RESTAURANT — valores só para RH/SUPER_ADMIN. */
   unitPrice?: string | number;
@@ -112,8 +115,11 @@ export interface CreateOrderPayload {
   quantity: number;
   fulfillmentType?: OrderFulfillmentType | null;
   orderCode?: string;
+  /** Obrigatório para solicitação especial do RH. */
+  companyId?: string;
   meals: Array<{
     recipientName: string;
+    workLocation?: string | null;
     notes?: string | null;
     itemIds: string[];
   }>;

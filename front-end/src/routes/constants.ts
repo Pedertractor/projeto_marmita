@@ -19,6 +19,9 @@ export const ROUTES = {
   DASHBOARD_RH: '/dashboard',
   DASHBOARD_RESTAURANT: '/restaurante',
   ORDERS: '/pedidos',
+  SPECIAL_ORDER_NEW: '/pedidos/especial',
+  SPECIAL_ORDER_WIZARD: '/pedidos/especial/:orderId',
+  SPECIAL_ORDER_EDIT: '/pedidos/especial/:orderId/editar',
   ORDER_DETAIL: '/pedidos/:orderId',
   MENUS: '/cardapios',
   MENU_EDIT: '/cardapios/editar',
@@ -47,6 +50,14 @@ export function requesterOrderEditPath(orderId: string) {
 
 export function adminOrderPath(orderId: string) {
   return `/pedidos/${orderId}`;
+}
+
+export function specialOrderWizardPath(orderId: string) {
+  return `/pedidos/especial/${orderId}`;
+}
+
+export function specialOrderEditPath(orderId: string) {
+  return `/pedidos/especial/${orderId}/editar`;
 }
 
 export function homeForRole(

@@ -58,15 +58,20 @@ export function MealPlate({ items, className }: MealPlateProps) {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.4, opacity: 0 }}
               transition={{ type: 'spring', stiffness: 420, damping: 22 }}
-              className='absolute z-10 flex size-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white shadow-md ring-1 ring-black/5'
+              className='absolute z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-0.5'
               style={{ left: pos.left, top: pos.top }}
               title={item.name}
             >
-              <MenuItemIcon
-                iconKey={item.iconKey}
-                size={22}
-                className='text-primary'
-              />
+              <div className='flex size-11 items-center justify-center rounded-full bg-white shadow-md ring-1 ring-black/5'>
+                <MenuItemIcon
+                  iconKey={item.iconKey}
+                  size={22}
+                  className='text-primary'
+                />
+              </div>
+              <span className='max-w-14 truncate text-center text-[9px] font-medium leading-none text-foreground/75 capitalize'>
+                {item.name}
+              </span>
             </motion.div>
           );
         })}

@@ -86,6 +86,9 @@ export function MenuForm({
   const hasSeed = Boolean(seedItems?.length);
   const [loaded, setLoaded] = useState(!syncItemsOnDateChange || hasSeed);
   const skipInitialDateSync = useRef(syncItemsOnDateChange && hasSeed);
+  const listRef = useRef<HTMLDivElement>(null);
+  const lastInputRef = useRef<HTMLInputElement>(null);
+  const shouldFocusNewItem = useRef(false);
 
   const { data: menu } = useQuery({
     queryKey: ['menu', date],
@@ -114,6 +117,17 @@ export function MenuForm({
 
   const canAddItem = items[items.length - 1]?.name.trim().length > 0;
   const canSave = items.every((item) => item.name.trim().length > 0);
+
+  useEffect(() => {
+    if (!shouldFocusNewItem.current) return;
+    shouldFocusNewItem.current = false;
+    const input = lastInputRef.current;
+    const list = listRef.current;
+    if (list) {
+      list.scrollTo({ top: list.scrollHeight, behavior: 'smooth' });
+    }
+    input?.focus({ preventScroll: true });
+  }, [items.length]);
   const replacesExisting =
     warnIfOccupied && occupiedDates.includes(date.slice(0, 10));
 
@@ -223,6 +237,7 @@ export function MenuForm({
       )}
 
       <div
+        ref={listRef}
         className='min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain py-1'
       >
         <div className='hidden gap-3 px-1 pb-1 text-xs font-medium text-muted-foreground md:grid md:grid-cols-[auto_minmax(0,1fr)_2.5rem_2.5rem] md:items-center'>
@@ -249,6 +264,7 @@ export function MenuForm({
             </div>
 
             <Input
+              ref={index === items.length - 1 ? lastInputRef : undefined}
               value={item.name}
               placeholder='Nome do prato'
               aria-label={`Nome do item ${index + 1}`}
@@ -313,16 +329,19 @@ export function MenuForm({
       <Button
         type='button'
         variant='outline'
-        className='h-11 flex-1 md:h-9 md:flex-none'
+        className='h-11 flex-[2] md:h-9'
         disabled={!canAddItem}
-        onClick={() => setItems((prev) => [...prev, emptyMenuItem()])}
+        onClick={() => {
+          shouldFocusNewItem.current = true;
+          setItems((prev) => [...prev, emptyMenuItem()]);
+        }}
       >
         <Plus className='size-4' />
         Item
       </Button>
 
       <Button
-        className='h-11 flex-1 md:ml-auto md:h-9 md:min-w-48'
+        className='h-11 flex-1 md:h-9 md:min-w-28'
         disabled={saveMutation.isPending || !canSave}
         onClick={() => saveMutation.mutate()}
       >

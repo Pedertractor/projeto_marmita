@@ -7,20 +7,7 @@ import { companiesApi } from '@/services/companies';
 import type { ListUser, UserRole } from '@/types/auth';
 import { ROLE_OPTIONS } from '@/pages/Usuarios/userFormConstants';
 import { useAuth } from '@/contexts/useAuth';
-import {
-  canAssignSuperAdminRole,
-  canResetUserPassword,
-} from '@/config/permissions';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+import { canAssignSuperAdminRole } from '@/config/permissions';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -65,10 +52,10 @@ function EditUserFormBody({
     formatBrazilianPhone(detail.phone ?? ''),
   );
   const [role, setRole] = useState<UserRole>(detail.role);
-  const [active, setActive] = useState(detail.active);
+  const [requiresWorkLocation, setRequiresWorkLocation] = useState(
+    Boolean(detail.requiresWorkLocation),
+  );
   const [companyId, setCompanyId] = useState(detail.companyId ?? '');
-  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
-  const [tempPassword, setTempPassword] = useState<string | null>(null);
 
   const { data: companies = [] } = useQuery({
     queryKey: ['companies'],
@@ -78,11 +65,6 @@ function EditUserFormBody({
 
   const canAssignSuper =
     authUser?.role != null && canAssignSuperAdminRole(authUser.role);
-  const canResetPassword =
-    authUser?.role != null &&
-    canResetUserPassword(authUser.role) &&
-    authUser.id !== detail.id &&
-    !(isRhLimited && detail.role === 'SUPER_ADMIN');
 
   const roleOptions = useMemo(() => {
     const base = canAssignSuper
@@ -99,15 +81,17 @@ function EditUserFormBody({
         return userApi.updateByAdmin(detail.id, {
           name: name.trim(),
           phone: phone.trim() || null,
-          active,
           role,
+          requiresWorkLocation:
+            role === 'REQUESTER' ? requiresWorkLocation : false,
         });
       }
       return userApi.updateByAdmin(detail.id, {
         name: name.trim(),
         phone: phone.trim() || null,
         role,
-        active,
+        requiresWorkLocation:
+          role === 'REQUESTER' ? requiresWorkLocation : false,
         companyId: role === 'REQUESTER' ? companyId || null : null,
       });
     },
@@ -118,16 +102,6 @@ function EditUserFormBody({
       }
       toast.success('Usuário atualizado.');
       onClose();
-    },
-  });
-
-  const resetMutation = useMutation({
-    mutationFn: () => userApi.resetPasswordByAdmin(detail.id),
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-      setTempPassword(data.temporaryPassword ?? null);
-      toast.success('Senha redefinida.');
-      setResetConfirmOpen(false);
     },
   });
 
@@ -203,30 +177,26 @@ function EditUserFormBody({
             </Select>
           </div>
         ) : null}
-        <div className='flex items-center gap-2'>
-          <Checkbox
-            id='edit-active'
-            checked={active}
-            onCheckedChange={(v) => setActive(Boolean(v))}
-          />
-          <Label htmlFor='edit-active'>Ativo</Label>
-        </div>
-        {tempPassword ? (
-          <p className='rounded-md bg-muted p-2 text-sm'>
-            Senha temporária: <strong>{tempPassword}</strong>
-          </p>
+        {role === 'REQUESTER' ? (
+          <div className='flex items-start gap-2'>
+            <Checkbox
+              id='edit-work-location'
+              checked={requiresWorkLocation}
+              onCheckedChange={(v) => setRequiresWorkLocation(Boolean(v))}
+            />
+            <div className='space-y-0.5'>
+              <Label htmlFor='edit-work-location' className='font-normal'>
+                Exigir local de trabalho nas marmitas
+              </Label>
+              <p className='text-xs text-muted-foreground'>
+                Ao solicitar, este usuário informa onde cada pessoa está
+                trabalhando.
+              </p>
+            </div>
+          </div>
         ) : null}
       </div>
-      <DialogFooter className='gap-2 sm:gap-0'>
-        {canResetPassword ? (
-          <Button
-            type='button'
-            variant='outline'
-            onClick={() => setResetConfirmOpen(true)}
-          >
-            Resetar senha
-          </Button>
-        ) : null}
+      <DialogFooter>
         <Button
           disabled={!name.trim() || updateMutation.isPending}
           onClick={() => updateMutation.mutate()}
@@ -238,27 +208,6 @@ function EditUserFormBody({
           )}
         </Button>
       </DialogFooter>
-
-      <AlertDialog open={resetConfirmOpen} onOpenChange={setResetConfirmOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Resetar senha?</AlertDialogTitle>
-            <AlertDialogDescription>
-              A senha será substituída por uma senha temporária aleatória. No
-              próximo login, o usuário precisará definir uma nova senha.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => resetMutation.mutate()}
-              disabled={resetMutation.isPending}
-            >
-              Confirmar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   );
 }
@@ -279,8 +228,8 @@ export function EditUserModal({ user, open, onClose }: Props) {
           <DialogTitle>Editar usuário</DialogTitle>
           <DialogDescription>
             {isRh
-              ? 'Altere nome, celular, papel e status'
-              : 'Altere nome, celular, papel, empresa e status'}
+              ? 'Altere nome, celular e papel'
+              : 'Altere nome, celular, papel e empresa'}
           </DialogDescription>
         </DialogHeader>
         {isLoading || !detail ? (

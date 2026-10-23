@@ -1,7 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { BookOpen, ShoppingBag, Truck } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  BookOpen,
+  ChefHat,
+  FileDown,
+  Printer,
+  ShoppingBag,
+  Truck,
+} from 'lucide-react';
+import { toast } from 'sonner';
 import { dashboardApi } from '@/services/dashboard';
 import { menusApi } from '@/services/menus';
 import { ordersApi } from '@/services/orders';
@@ -14,8 +22,10 @@ import {
 } from '@/utils/format';
 import { DatePicker } from '@/components/ui/date-picker';
 import { orderFulfillmentLabel, orderStatusLabel } from '@/utils/status-labels';
+import { canRestaurantStartPrep } from '@/utils/order-status';
 import type { OrderFulfillmentType, OrderStatus } from '@/types/domain';
 import { cn } from '@/lib/utils';
+import { OrderSpecialBadge } from '@/components/OrderSpecialBadge';
 import { OrderStatusBadge } from '@/components/OrderStatusBadge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -46,14 +56,15 @@ function FulfillmentLabel({
   );
 }
 
-const STATUS_MASCOT: Partial<Record<OrderStatus, string>> = {
-  SUBMITTED: '/tigela_waiting.png',
-  ACCEPTED: '/tigela_cooking.png',
-  READY: '/tigela_check.png',
-};
-
 export function RestaurantDashboardPage() {
+  const queryClient = useQueryClient();
   const [menuDate, setMenuDate] = useState(todayISODate());
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const { data: stats, isLoading } = useQuery({
     queryKey: ['dashboard-restaurant', menuDate],
@@ -72,6 +83,11 @@ export function RestaurantDashboardPage() {
 
   const menuMissing = !menuLoading && menu === null;
   const isToday = menuDate === todayISODate();
+  const prepWindowOpen = canRestaurantStartPrep(new Date(now));
+
+  const submittedCount = orders.filter((o) => o.status === 'SUBMITTED').length;
+  const acceptedCount = orders.filter((o) => o.status === 'ACCEPTED').length;
+  const printableCount = orders.filter((o) => o.status !== 'DRAFT').length;
 
   const counts = Object.fromEntries(
     (stats?.byStatus ?? []).map((r) => [r.status, r]),
@@ -79,12 +95,60 @@ export function RestaurantDashboardPage() {
     Record<OrderStatus, { orders: number; quantity: number }>
   >;
 
-  const leadingStatus = ACTIVE.reduce<OrderStatus | null>((leading, status) => {
-    const currentOrders = counts[status]?.orders ?? 0;
-    if (currentOrders <= 0) return leading;
-    if (!leading) return status;
-    return currentOrders > (counts[leading]?.orders ?? 0) ? status : leading;
-  }, null);
+  async function invalidateDay() {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['orders', 'restaurant', menuDate] }),
+      queryClient.invalidateQueries({
+        queryKey: ['dashboard-restaurant', menuDate],
+      }),
+    ]);
+  }
+
+  const startPrepMutation = useMutation({
+    mutationFn: () => ordersApi.startPrepAndPrint(),
+    onSuccess: async () => {
+      await invalidateDay();
+      toast.success('Preparo iniciado. PDF baixado para impressão.');
+    },
+    onError: (err: unknown) => {
+      const message =
+        err instanceof Error
+          ? err.message
+          : 'Não foi possível iniciar o preparo.';
+      toast.error(message);
+    },
+  });
+
+  const markReadyMutation = useMutation({
+    mutationFn: () => ordersApi.markBatchReady(),
+    onSuccess: async (result) => {
+      await invalidateDay();
+      toast.success(
+        `${result.updated} pedido(s) marcado(s) como pronto(s).`,
+      );
+    },
+  });
+
+  const simulatePdfMutation = useMutation({
+    mutationFn: () => ordersApi.simulatePrepPdf(),
+    onSuccess: () => {
+      toast.success('PDF de simulação baixado.');
+    },
+    onError: (err: unknown) => {
+      const message =
+        err instanceof Error
+          ? err.message
+          : 'Não foi possível gerar o PDF de simulação.';
+      toast.error(message);
+    },
+  });
+
+  const canStartPrep =
+    isToday && prepWindowOpen && submittedCount > 0 && !startPrepMutation.isPending;
+  const canMarkReady =
+    isToday && acceptedCount > 0 && !markReadyMutation.isPending;
+  const canSimulatePdf =
+    isToday && printableCount > 0 && !simulatePdfMutation.isPending;
 
   return (
     <div className='space-y-6'>
@@ -106,14 +170,7 @@ export function RestaurantDashboardPage() {
 
       {menuMissing ? (
         <div className='relative overflow-hidden rounded-2xl bg-amber-50 ring-1 ring-amber-200/80'>
-          <img
-            src='/tigela_waiting.png'
-            alt=''
-            aria-hidden
-            draggable={false}
-            className='pointer-events-none absolute top-0 -right-1 z-0 h-16 w-auto max-w-[28%] object-contain object-right select-none sm:h-[4.5rem]'
-          />
-          <div className='relative z-10 flex flex-col gap-2 px-4 py-2.5 pr-[30%] sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:pr-28'>
+          <div className='relative z-10 flex flex-col gap-2 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3'>
             <div className='min-w-0 space-y-0.5'>
               <p className='text-sm font-semibold leading-snug text-amber-950'>
                 {isToday
@@ -143,17 +200,12 @@ export function RestaurantDashboardPage() {
           {ACTIVE.map((status) => {
             const ordersCount = counts[status]?.orders ?? 0;
             const quantity = counts[status]?.quantity ?? 0;
-            const mascotSrc =
-              status === leadingStatus ? STATUS_MASCOT[status] : undefined;
-
             return (
               <div
                 key={status}
                 className='relative flex h-36 overflow-hidden rounded-3xl bg-white shadow-[0_4px_24px_rgba(15,23,42,0.08)] ring-1 ring-black/5'
               >
-                <div
-                  className={`relative z-10 flex flex-1 flex-col justify-between p-5 ${mascotSrc ? 'pr-28' : ''}`}
-                >
+                <div className='relative z-10 flex flex-1 flex-col justify-between p-5'>
                   <p className='text-sm font-medium text-slate-500'>
                     {orderStatusLabel(status)}
                   </p>
@@ -164,14 +216,6 @@ export function RestaurantDashboardPage() {
                     {quantity} marmitas
                   </p>
                 </div>
-                {mascotSrc ? (
-                  <img
-                    src={mascotSrc}
-                    alt=''
-                    className='pointer-events-none absolute right-0 bottom-0 h-32 w-auto max-w-[50%] object-contain object-bottom-right select-none'
-                    draggable={false}
-                  />
-                ) : null}
               </div>
             );
           })}
@@ -179,12 +223,52 @@ export function RestaurantDashboardPage() {
       )}
 
       <Card>
-        <CardHeader>
-          <CardTitle>Fila do dia</CardTitle>
-          <CardDescription>
-            Pendentes: {stats?.pending.orders ?? 0} pedidos /{' '}
-            {stats?.pending.quantity ?? 0} marmitas
-          </CardDescription>
+        <CardHeader className='space-y-3'>
+          <div className='flex flex-wrap items-start justify-between gap-3'>
+            <div>
+              <CardTitle>Fila do dia</CardTitle>
+              <CardDescription>
+                Pendentes: {stats?.pending.orders ?? 0} pedidos /{' '}
+                {stats?.pending.quantity ?? 0} marmitas
+              </CardDescription>
+            </div>
+            {isToday ? (
+              <div className='flex flex-wrap gap-2'>
+                <Button
+                  type='button'
+                  disabled={!canStartPrep}
+                  onClick={() => startPrepMutation.mutate()}
+                >
+                  <FileDown className='mr-1.5 size-4' />
+                  {startPrepMutation.isPending
+                    ? 'Gerando…'
+                    : 'Iniciar preparo e imprimir'}
+                </Button>
+                <Button
+                  type='button'
+                  variant='secondary'
+                  disabled={!canMarkReady}
+                  onClick={() => markReadyMutation.mutate()}
+                >
+                  <ChefHat className='mr-1.5 size-4' />
+                  {markReadyMutation.isPending
+                    ? 'Atualizando…'
+                    : 'Marcar pedidos prontos'}
+                </Button>
+                <Button
+                  type='button'
+                  variant='outline'
+                  disabled={!canSimulatePdf}
+                  onClick={() => simulatePdfMutation.mutate()}
+                >
+                  <Printer className='mr-1.5 size-4' />
+                  {simulatePdfMutation.isPending
+                    ? 'Gerando…'
+                    : 'Simular PDF'}
+                </Button>
+              </div>
+            ) : null}
+          </div>
         </CardHeader>
         <CardContent className='space-y-2'>
           {orders.length === 0 ? (
@@ -197,8 +281,11 @@ export function RestaurantDashboardPage() {
                 className='flex items-center justify-between rounded-md border px-3 py-3 text-sm hover:bg-accent/40'
               >
                 <div>
-                  <p className='font-medium'>
-                    {order.companyName} · {order.quantity} marmitas
+                  <p className='flex flex-wrap items-center gap-1.5 font-medium'>
+                    <span>
+                      {order.companyName} · {order.quantity} marmitas
+                    </span>
+                    {order.isSpecial ? <OrderSpecialBadge compact /> : null}
                   </p>
                   <p className='flex items-center gap-1.5 text-muted-foreground'>
                     <FulfillmentLabel type={order.fulfillmentType} />

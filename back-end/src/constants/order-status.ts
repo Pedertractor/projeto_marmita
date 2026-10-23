@@ -1,8 +1,5 @@
 import type { $Enums } from '../generated/prisma/client.js';
 
-/** Janela em que o solicitante pode editar um pedido já enviado. */
-export const ORDER_EDIT_WINDOW_MS = 5 * 60 * 1000;
-
 export const ORDER_STATUS_TRANSITIONS: Record<
   $Enums.OrderStatus,
   $Enums.OrderStatus[]

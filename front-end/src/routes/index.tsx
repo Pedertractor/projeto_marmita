@@ -17,6 +17,7 @@ import { RhDashboardPage } from '@/pages/rh/RhDashboardPage';
 import { CompaniesPage } from '@/pages/rh/CompaniesPage';
 import { MealPricePage } from '@/pages/rh/MealPricePage';
 import { RegistrationRequestsPage } from '@/pages/rh/RegistrationRequestsPage';
+import { SpecialOrderNewPage } from '@/pages/rh/SpecialOrderNewPage';
 import { RestaurantDashboardPage } from '@/pages/restaurant/RestaurantDashboardPage';
 import { MenuListPage } from '@/pages/restaurant/MenuListPage';
 import { MenuEditPage } from '@/pages/restaurant/MenuEditPage';
@@ -98,6 +99,18 @@ const router = createBrowserRouter([
               {
                 path: ROUTES.ORDERS,
                 element: <OrdersListPage />,
+              },
+              {
+                path: ROUTES.SPECIAL_ORDER_NEW,
+                element: <SpecialOrderNewPage />,
+              },
+              {
+                path: ROUTES.SPECIAL_ORDER_WIZARD,
+                element: <NewOrderPage specialMode />,
+              },
+              {
+                path: ROUTES.SPECIAL_ORDER_EDIT,
+                element: <NewOrderPage editMode specialMode />,
               },
               {
                 path: ROUTES.ORDER_DETAIL,

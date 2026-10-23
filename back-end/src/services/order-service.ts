@@ -1,10 +1,18 @@
 import { $Enums, Prisma } from '../generated/prisma/client.js';
-import {
-  canTransitionStatus,
-  ORDER_EDIT_WINDOW_MS,
-} from '../constants/order-status.js';
+import { canTransitionStatus } from '../constants/order-status.js';
 import { HttpError } from '../https/errors/index.js';
+import {
+  canRestaurantStartPrep,
+  formatSaoPauloDateIso,
+  getRestaurantPrepBatch,
+  isRequesterOrderWindowOpen,
+  RESTAURANT_START_PREP_WINDOW_MESSAGE,
+  REQUESTER_ORDER_WINDOW_MESSAGE,
+  todaySaoPauloDateOnly,
+} from '../lib/order-request-window.js';
+import { buildPrepOrdersPdf } from '../lib/prep-orders-pdf.js';
 import { prisma } from '../lib/prisma.js';
+import { CompanyPrismaRepository } from '../repositories/prisma/company-repository.js';
 import { MealPricePrismaRepository } from '../repositories/prisma/meal-price-repository.js';
 import { MenuPrismaRepository } from '../repositories/prisma/menu-repository.js';
 import { OrderPrismaRepository } from '../repositories/prisma/order-repository.js';
@@ -14,6 +22,7 @@ import { AuditLogService } from './audit-log-service.js';
 
 export type OrderMealInput = {
   recipientName: string;
+  workLocation?: string | null | undefined;
   notes?: string | null | undefined;
   itemIds: string[];
 };
@@ -54,12 +63,65 @@ function omitOrdersPricing<T extends { unitPrice?: unknown; totalPrice?: unknown
   return orders.map(omitOrderPricing);
 }
 
+function assertRequesterOrderWindowOpen() {
+  if (!isRequesterOrderWindowOpen()) {
+    throw new HttpError(REQUESTER_ORDER_WINDOW_MESSAGE, 400);
+  }
+}
+
+function canCreateOrders(role: $Enums.UserRole): boolean {
+  return role === $Enums.UserRole.REQUESTER || role === $Enums.UserRole.RH;
+}
+
+async function resolveOrderCompany(
+  user: {
+    role: $Enums.UserRole;
+    companyId: string | null;
+    company: { id: string; name: string; active: boolean } | null;
+  },
+  companyIdInput?: string | null,
+): Promise<{ companyId: string; companyName: string; isSpecial: boolean }> {
+  if (user.role === $Enums.UserRole.RH) {
+    if (!companyIdInput) {
+      throw new HttpError(
+        'Informe a empresa para a solicitação especial',
+        400,
+      );
+    }
+    const companyRepo = new CompanyPrismaRepository(prisma);
+    const company = await companyRepo.findById(companyIdInput);
+    if (!company) {
+      throw new HttpError('Empresa não encontrada', 404);
+    }
+    if (!company.active) {
+      throw new HttpError('Empresa selecionada está inativa', 400);
+    }
+    return {
+      companyId: company.id,
+      companyName: company.name,
+      isSpecial: true,
+    };
+  }
+
+  if (!user.companyId || !user.company) {
+    throw new HttpError('Solicitante sem empresa vinculada', 400);
+  }
+  if (!user.company.active) {
+    throw new HttpError('Empresa do solicitante está inativa', 400);
+  }
+  return {
+    companyId: user.companyId,
+    companyName: user.company.name,
+    isSpecial: false,
+  };
+}
+
 export class OrderService {
   private async buildValidatedMeals(
     menuId: string,
     quantity: number,
     meals: OrderMealInput[],
-    options: { strict: boolean },
+    options: { strict: boolean; requireWorkLocation?: boolean },
   ) {
     if (options.strict && meals.length !== quantity) {
       throw new HttpError(
@@ -72,6 +134,7 @@ export class OrderService {
       throw new HttpError('Quantidade deve ser pelo menos 1', 400);
     }
 
+    const requireWorkLocation = Boolean(options.requireWorkLocation);
     const seen = new Set<string>();
     for (const meal of meals) {
       const key = normalizeRecipient(meal.recipientName);
@@ -86,6 +149,17 @@ export class OrderService {
           );
         }
         seen.add(key);
+      }
+
+      if (
+        options.strict &&
+        requireWorkLocation &&
+        !meal.workLocation?.trim()
+      ) {
+        throw new HttpError(
+          'Informe onde cada pessoa da marmita está trabalhando',
+          400,
+        );
       }
 
       if (options.strict && !meal.itemIds.length) {
@@ -126,6 +200,7 @@ export class OrderService {
 
       return {
         recipientName: meal.recipientName.trim() || `Marmita ${index + 1}`,
+        workLocation: meal.workLocation?.trim() || null,
         notes: meal.notes?.trim() || null,
         sortOrder: index,
         items,
@@ -135,21 +210,26 @@ export class OrderService {
     return { menu, meals: built };
   }
 
-  async start(actingUserId: string, input: { menuId: string }) {
+  async start(
+    actingUserId: string,
+    input: { menuId: string; companyId?: string | undefined },
+  ) {
     const userRepo = new UserPrismaRepository(prisma);
     const user = await userRepo.findByIdWithRelations(actingUserId);
     if (!user) {
       throw new HttpError('Usuário não encontrado', 401);
     }
-    if (user.role !== $Enums.UserRole.REQUESTER) {
-      throw new HttpError('Apenas solicitantes podem criar pedidos', 403);
+    if (!canCreateOrders(user.role)) {
+      throw new HttpError(
+        'Apenas solicitantes ou RH podem criar pedidos',
+        403,
+      );
     }
-    if (!user.companyId || !user.company) {
-      throw new HttpError('Solicitante sem empresa vinculada', 400);
-    }
-    if (!user.company.active) {
-      throw new HttpError('Empresa do solicitante está inativa', 400);
-    }
+
+    const { companyId, companyName, isSpecial } = await resolveOrderCompany(
+      user,
+      input.companyId,
+    );
 
     const menuRepo = new MenuPrismaRepository(prisma);
     const menu = await menuRepo.findById(input.menuId);
@@ -161,29 +241,37 @@ export class OrderService {
     const existingDraft = await orderRepo.findDraftForRequester(
       user.id,
       menu.date,
+      isSpecial ? { companyId } : undefined,
     );
     if (existingDraft) {
       return existingDraft;
     }
 
+    if (user.role !== $Enums.UserRole.RH) {
+      assertRequesterOrderWindowOpen();
+    }
+
     const priceRepo = new MealPricePrismaRepository(prisma);
-    const currentPrice = await priceRepo.findCurrent(user.companyId);
+    const currentPrice = await priceRepo.findCurrent(companyId);
     if (!currentPrice) {
       throw new HttpError(
-        'Empresa sem preço de marmita configurado. Contate o RH.',
+        isSpecial
+          ? 'Empresa sem preço de marmita configurado.'
+          : 'Empresa sem preço de marmita configurado. Contate o RH.',
         400,
       );
     }
 
     const order = await orderRepo.createDraft({
       requesterId: user.id,
-      companyId: user.companyId,
+      companyId,
       requesterName: user.name,
-      companyName: user.company.name,
+      companyName,
       restaurantId: menu.restaurantId,
       menuId: menu.id,
       menuDate: menu.date,
       unitPrice: currentPrice.amount,
+      isSpecial,
     });
 
     const audit = new AuditLogService();
@@ -203,9 +291,10 @@ export class OrderService {
     input: {
       menuId: string;
       quantity: number;
-      fulfillmentType: $Enums.OrderFulfillmentType;
+      fulfillmentType?: $Enums.OrderFulfillmentType | null | undefined;
       meals: OrderMealInput[];
       orderCode?: string | undefined;
+      companyId?: string | undefined;
     },
   ) {
     const userRepo = new UserPrismaRepository(prisma);
@@ -213,21 +302,29 @@ export class OrderService {
     if (!user) {
       throw new HttpError('Usuário não encontrado', 401);
     }
-    if (user.role !== $Enums.UserRole.REQUESTER) {
-      throw new HttpError('Apenas solicitantes podem criar pedidos', 403);
-    }
-    if (!user.companyId || !user.company) {
-      throw new HttpError('Solicitante sem empresa vinculada', 400);
-    }
-    if (!user.company.active) {
-      throw new HttpError('Empresa do solicitante está inativa', 400);
+    if (!canCreateOrders(user.role)) {
+      throw new HttpError(
+        'Apenas solicitantes ou RH podem criar pedidos',
+        403,
+      );
     }
 
+    if (user.role !== $Enums.UserRole.RH) {
+      assertRequesterOrderWindowOpen();
+    }
+
+    const { companyId, companyName, isSpecial } = await resolveOrderCompany(
+      user,
+      input.companyId,
+    );
+
     const priceRepo = new MealPricePrismaRepository(prisma);
-    const currentPrice = await priceRepo.findCurrent(user.companyId);
+    const currentPrice = await priceRepo.findCurrent(companyId);
     if (!currentPrice) {
       throw new HttpError(
-        'Empresa sem preço de marmita configurado. Contate o RH.',
+        isSpecial
+          ? 'Empresa sem preço de marmita configurado.'
+          : 'Empresa sem preço de marmita configurado. Contate o RH.',
         400,
       );
     }
@@ -236,7 +333,10 @@ export class OrderService {
       input.menuId,
       input.quantity,
       input.meals,
-      { strict: true },
+      {
+        strict: true,
+        requireWorkLocation: user.requiresWorkLocation,
+      },
     );
 
     const unitPrice = currentPrice.amount;
@@ -247,18 +347,19 @@ export class OrderService {
     try {
       order = await orderRepo.create({
         requesterId: user.id,
-        companyId: user.companyId,
+        companyId,
         requesterName: user.name,
-        companyName: user.company.name,
+        companyName,
         restaurantId: menu.restaurantId,
         menuId: menu.id,
         menuDate: menu.date,
         quantity: input.quantity,
         unitPrice,
         totalPrice,
-        fulfillmentType: input.fulfillmentType,
+        fulfillmentType: input.fulfillmentType ?? null,
         meals,
         changedById: user.id,
+        isSpecial,
         ...(input.orderCode !== undefined
           ? { orderCode: input.orderCode }
           : {}),
@@ -313,6 +414,20 @@ export class OrderService {
       throw new HttpError('Sem permissão para editar este pedido', 403);
     }
 
+    if (user.role === $Enums.UserRole.RH && !existing.isSpecial) {
+      throw new HttpError(
+        'RH só pode editar solicitações especiais próprias',
+        403,
+      );
+    }
+
+    if (
+      user.role !== $Enums.UserRole.REQUESTER &&
+      user.role !== $Enums.UserRole.RH
+    ) {
+      throw new HttpError('Sem permissão para editar este pedido', 403);
+    }
+
     if (existing.status === $Enums.OrderStatus.ACCEPTED) {
       throw new HttpError('Pedido em preparo não pode ser editado', 400);
     }
@@ -331,19 +446,8 @@ export class OrderService {
       );
     }
 
-    if (existing.status === $Enums.OrderStatus.SUBMITTED) {
-      const submittedAt =
-        [...(existing.statusHistory ?? [])]
-          .reverse()
-          .find((entry) => entry.toStatus === $Enums.OrderStatus.SUBMITTED)
-          ?.createdAt ?? existing.createdAt;
-      const elapsedMs = Date.now() - new Date(submittedAt).getTime();
-      if (elapsedMs > ORDER_EDIT_WINDOW_MS) {
-        throw new HttpError(
-          'O prazo de 5 minutos para editar o pedido expirou',
-          400,
-        );
-      }
+    if (user.role !== $Enums.UserRole.RH) {
+      assertRequesterOrderWindowOpen();
     }
 
     const isDraft = existing.status === $Enums.OrderStatus.DRAFT;
@@ -351,7 +455,10 @@ export class OrderService {
       input.menuId,
       input.quantity,
       input.meals,
-      { strict: !isDraft },
+      {
+        strict: !isDraft,
+        requireWorkLocation: user.requiresWorkLocation,
+      },
     );
 
     const unitPrice = existing.unitPrice;
@@ -361,10 +468,6 @@ export class OrderService {
       input.fulfillmentType !== undefined
         ? input.fulfillmentType
         : existing.fulfillmentType;
-
-    if (!isDraft && !fulfillmentType) {
-      throw new HttpError('Informe se é retirada ou entrega', 400);
-    }
 
     const updated = await orderRepo.replaceMeals(orderId, {
       quantity: input.quantity,
@@ -399,6 +502,10 @@ export class OrderService {
       throw new HttpError('Usuário não encontrado', 401);
     }
 
+    if (user.role !== $Enums.UserRole.RH) {
+      assertRequesterOrderWindowOpen();
+    }
+
     const existing = await orderRepo.findById(orderId);
     if (!existing) {
       throw new HttpError('Pedido não encontrado', 404);
@@ -408,16 +515,27 @@ export class OrderService {
       throw new HttpError('Sem permissão para enviar este pedido', 403);
     }
 
+    if (user.role === $Enums.UserRole.RH && !existing.isSpecial) {
+      throw new HttpError(
+        'RH só pode enviar solicitações especiais próprias',
+        403,
+      );
+    }
+
+    if (
+      user.role !== $Enums.UserRole.REQUESTER &&
+      user.role !== $Enums.UserRole.RH
+    ) {
+      throw new HttpError('Sem permissão para enviar este pedido', 403);
+    }
+
     if (existing.status !== $Enums.OrderStatus.DRAFT) {
       throw new HttpError('Somente rascunhos podem ser enviados', 400);
     }
 
-    if (!existing.fulfillmentType) {
-      throw new HttpError('Informe se é retirada ou entrega', 400);
-    }
-
     const mealInputs: OrderMealInput[] = existing.meals.map((meal) => ({
       recipientName: meal.recipientName,
+      workLocation: meal.workLocation,
       notes: meal.notes,
       itemIds: meal.items
         .map((i) => i.menuItemId)
@@ -428,7 +546,10 @@ export class OrderService {
       existing.menuId,
       existing.quantity,
       mealInputs,
-      { strict: true },
+      {
+        strict: true,
+        requireWorkLocation: user.requiresWorkLocation,
+      },
     );
 
     const updated = await orderRepo.updateStatus(orderId, {
@@ -515,6 +636,198 @@ export class OrderService {
     return updated;
   }
 
+  async startPrepAndPrint(actingUserId: string): Promise<{
+    pdf: Uint8Array;
+    filename: string;
+    updated: number;
+  }> {
+    if (!canRestaurantStartPrep()) {
+      throw new HttpError(RESTAURANT_START_PREP_WINDOW_MESSAGE, 400);
+    }
+
+    const userRepo = new UserPrismaRepository(prisma);
+    const user = await userRepo.findById(actingUserId);
+    if (!user) {
+      throw new HttpError('Usuário não encontrado', 401);
+    }
+    if (user.role !== $Enums.UserRole.RESTAURANT) {
+      throw new HttpError(
+        'Apenas o restaurante pode iniciar o preparo em lote',
+        403,
+      );
+    }
+    const restaurantId = requireBoundRestaurantId(user);
+    const menuDate = todaySaoPauloDateOnly();
+    const menuDateIso = formatSaoPauloDateIso();
+
+    const orderRepo = new OrderPrismaRepository(prisma);
+    const orders = await orderRepo.findMany({
+      restaurantId,
+      menuDate,
+      status: $Enums.OrderStatus.SUBMITTED,
+    });
+
+    if (orders.length === 0) {
+      throw new HttpError('Não há pedidos na fila para iniciar o preparo', 400);
+    }
+
+    const sorted = [...orders].sort((a, b) =>
+      a.orderCode.localeCompare(b.orderCode),
+    );
+
+    const audit = new AuditLogService();
+    for (const order of sorted) {
+      await orderRepo.updateStatus(order.id, {
+        fromStatus: $Enums.OrderStatus.SUBMITTED,
+        toStatus: $Enums.OrderStatus.ACCEPTED,
+        changedById: actingUserId,
+      });
+      await audit.write({
+        userId: actingUserId,
+        action: 'ORDER_STATUS_CHANGE',
+        entityType: 'Order',
+        entityId: order.id,
+        before: { status: $Enums.OrderStatus.SUBMITTED },
+        after: { status: $Enums.OrderStatus.ACCEPTED },
+      });
+    }
+
+    const pdf = await buildPrepOrdersPdf({
+      menuDateIso,
+      batch: getRestaurantPrepBatch(),
+      orders: sorted.map((order) => ({
+        orderCode: order.orderCode,
+        companyName: order.companyName,
+        requesterName: order.requesterName,
+        fulfillmentType: order.fulfillmentType,
+        quantity: order.quantity,
+        isSpecial: order.isSpecial,
+        meals: order.meals.map((meal) => ({
+          recipientName: meal.recipientName,
+          workLocation: meal.workLocation,
+          notes: meal.notes,
+          items: meal.items.map((item) => ({
+            itemName: item.itemName || item.menuItem?.name || 'Item',
+          })),
+        })),
+      })),
+    });
+
+    return {
+      pdf,
+      filename: `pedidos-${menuDateIso}.pdf`,
+      updated: sorted.length,
+    };
+  }
+
+  /** Gera o PDF do dia sem alterar status nem checar horário (simulação). */
+  async simulatePrepPdf(actingUserId: string): Promise<{
+    pdf: Uint8Array;
+    filename: string;
+  }> {
+    const userRepo = new UserPrismaRepository(prisma);
+    const user = await userRepo.findById(actingUserId);
+    if (!user) {
+      throw new HttpError('Usuário não encontrado', 401);
+    }
+    if (user.role !== $Enums.UserRole.RESTAURANT) {
+      throw new HttpError(
+        'Apenas o restaurante pode simular a impressão do PDF',
+        403,
+      );
+    }
+    const restaurantId = requireBoundRestaurantId(user);
+    const menuDate = todaySaoPauloDateOnly();
+    const menuDateIso = formatSaoPauloDateIso();
+
+    const orderRepo = new OrderPrismaRepository(prisma);
+    const orders = await orderRepo.findMany({
+      restaurantId,
+      menuDate,
+      excludeDraft: true,
+    });
+
+    if (orders.length === 0) {
+      throw new HttpError('Não há pedidos para gerar o PDF de simulação', 400);
+    }
+
+    const sorted = [...orders].sort((a, b) =>
+      a.orderCode.localeCompare(b.orderCode),
+    );
+
+    const pdf = await buildPrepOrdersPdf({
+      menuDateIso,
+      batch: getRestaurantPrepBatch(),
+      orders: sorted.map((order) => ({
+        orderCode: order.orderCode,
+        companyName: order.companyName,
+        requesterName: order.requesterName,
+        fulfillmentType: order.fulfillmentType,
+        quantity: order.quantity,
+        isSpecial: order.isSpecial,
+        meals: order.meals.map((meal) => ({
+          recipientName: meal.recipientName,
+          workLocation: meal.workLocation,
+          notes: meal.notes,
+          items: meal.items.map((item) => ({
+            itemName: item.itemName || item.menuItem?.name || 'Item',
+          })),
+        })),
+      })),
+    });
+
+    return {
+      pdf,
+      filename: `pedidos-simulacao-${menuDateIso}.pdf`,
+    };
+  }
+
+  async markBatchReady(actingUserId: string): Promise<{ updated: number }> {
+    const userRepo = new UserPrismaRepository(prisma);
+    const user = await userRepo.findById(actingUserId);
+    if (!user) {
+      throw new HttpError('Usuário não encontrado', 401);
+    }
+    if (user.role !== $Enums.UserRole.RESTAURANT) {
+      throw new HttpError(
+        'Apenas o restaurante pode marcar o lote como pronto',
+        403,
+      );
+    }
+    const restaurantId = requireBoundRestaurantId(user);
+    const menuDate = todaySaoPauloDateOnly();
+
+    const orderRepo = new OrderPrismaRepository(prisma);
+    const orders = await orderRepo.findMany({
+      restaurantId,
+      menuDate,
+      status: $Enums.OrderStatus.ACCEPTED,
+    });
+
+    if (orders.length === 0) {
+      throw new HttpError('Não há pedidos em preparo para marcar como prontos', 400);
+    }
+
+    const audit = new AuditLogService();
+    for (const order of orders) {
+      await orderRepo.updateStatus(order.id, {
+        fromStatus: $Enums.OrderStatus.ACCEPTED,
+        toStatus: $Enums.OrderStatus.READY,
+        changedById: actingUserId,
+      });
+      await audit.write({
+        userId: actingUserId,
+        action: 'ORDER_STATUS_CHANGE',
+        entityType: 'Order',
+        entityId: order.id,
+        before: { status: $Enums.OrderStatus.ACCEPTED },
+        after: { status: $Enums.OrderStatus.READY },
+      });
+    }
+
+    return { updated: orders.length };
+  }
+
   async list(
     actingUserId: string,
     filters: {
@@ -563,6 +876,10 @@ export class OrderService {
       return omitOrdersPricing(await orderRepo.findMany(base));
     }
 
+    if (user.role === $Enums.UserRole.RH) {
+      return orderRepo.findManyForRh(user.id, base);
+    }
+
     if (base.status === $Enums.OrderStatus.DRAFT) {
       return [];
     }
@@ -601,6 +918,14 @@ export class OrderService {
     if (
       user.role === $Enums.UserRole.RESTAURANT &&
       order.status === $Enums.OrderStatus.DRAFT
+    ) {
+      throw new HttpError('Sem permissão para ver este pedido', 403);
+    }
+
+    if (
+      user.role === $Enums.UserRole.RH &&
+      order.status === $Enums.OrderStatus.DRAFT &&
+      (order.requesterId !== actingUserId || !order.isSpecial)
     ) {
       throw new HttpError('Sem permissão para ver este pedido', 403);
     }
