@@ -31,10 +31,8 @@ services:
 
 volumes:
   solicitacao_marmita_postgres_data:
-    external: true
     name: solicitacao_marmita_postgres_data
   solicitacao_marmita_uploads:
-    external: true
     name: solicitacao_marmita_uploads
 
 networks:
