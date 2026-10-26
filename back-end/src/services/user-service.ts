@@ -15,6 +15,8 @@ import {
   toEmailChallengePublic,
   needsEmailChallenge,
 } from '../lib/email-challenge.js';
+import { syntheticEmailForCard } from '../lib/internal-user-email.js';
+import { ApiPedertractorEmployee } from '../integrations/api-pedertractor-employee.js';
 import {
   avatarPublicUrl,
   deleteAvatar,
@@ -157,6 +159,168 @@ export class UserService {
           ? randomEmailChallengeDueAt()
           : null,
     });
+  }
+
+  async lookupEmployee(cardNumber: string, unit: $Enums.Unit) {
+    const normalizedCard = cardNumber.trim();
+    if (!normalizedCard) {
+      throw new HttpError('Informe o número do cartão', 400);
+    }
+
+    const userRepository = new UserPrismaRepository(prisma);
+    const existing = await userRepository.findByUnitAndCardNumberForAuth(
+      normalizedCard,
+      unit,
+    );
+    if (existing) {
+      throw new HttpError(
+        'Este cartão já possui cadastro na Marmita',
+        409,
+      );
+    }
+
+    const api = new ApiPedertractorEmployee();
+    const employee = await api.getEmployee({
+      cardNumber: normalizedCard,
+      unit,
+    });
+
+    if (!employee.status) {
+      throw new HttpError(
+        'Colaborador não está ativo na base corporativa',
+        400,
+      );
+    }
+
+    const resolvedCard = employee.cardNumber?.trim() || normalizedCard;
+    const already =
+      resolvedCard !== normalizedCard
+        ? await userRepository.findByUnitAndCardNumberForAuth(
+            resolvedCard,
+            unit,
+          )
+        : null;
+    if (already) {
+      throw new HttpError(
+        'Este cartão já possui cadastro na Marmita',
+        409,
+      );
+    }
+
+    return {
+      name: employee.name,
+      cardNumber: resolvedCard,
+      unit: employee.unit || unit,
+      status: employee.status,
+      employeeExternalId: String(employee.id),
+    };
+  }
+
+  async registerByCard(
+    input: {
+      cardNumber: string;
+      unit: $Enums.Unit;
+      role: $Enums.UserRole;
+      email?: string | null | undefined;
+      phone?: string | null | undefined;
+      companyId?: string | null | undefined;
+      restaurantId?: string | null | undefined;
+      requiresWorkLocation?: boolean | undefined;
+    },
+    actingAdminId: string,
+  ) {
+    const lookedUp = await this.lookupEmployee(input.cardNumber, input.unit);
+    const cardNumber = lookedUp.cardNumber;
+    const unit = input.unit;
+    const name = lookedUp.name.trim();
+
+    const email = input.email?.trim().toLowerCase()
+      ? input.email.trim().toLowerCase()
+      : syntheticEmailForCard(unit, cardNumber);
+
+    const userRepository = new UserPrismaRepository(prisma);
+    const existingEmail = await userRepository.findByEmail(email);
+    if (existingEmail) {
+      throw new HttpError('E-mail já cadastrado', 400);
+    }
+
+    let companyId =
+      input.role === $Enums.UserRole.REQUESTER
+        ? (input.companyId ?? null)
+        : null;
+    let restaurantId =
+      input.role === $Enums.UserRole.RESTAURANT
+        ? (input.restaurantId ?? null)
+        : null;
+
+    if (input.role === $Enums.UserRole.REQUESTER && !companyId) {
+      const companyRepo = new CompanyPrismaRepository(prisma);
+      const company = await companyRepo.findByCode(unit);
+      if (!company || !company.active) {
+        throw new HttpError(
+          `Empresa ${unit} não encontrada ou inativa`,
+          400,
+        );
+      }
+      companyId = company.id;
+    }
+
+    if (input.role === $Enums.UserRole.RESTAURANT && !restaurantId) {
+      const restaurantRepo = new RestaurantPrismaRepository(prisma);
+      const restaurant = await restaurantRepo.findFirstActive();
+      if (!restaurant) {
+        throw new HttpError('Nenhum restaurante cadastrado', 400);
+      }
+      restaurantId = restaurant.id;
+    }
+
+    await this.assertRoleLinks(input.role, companyId, restaurantId);
+
+    const temporaryPassword = generateTemporaryPassword();
+    const passwordHash = await bcrypt.hash(temporaryPassword, 10);
+
+    const created = await userRepository.create({
+      email,
+      name,
+      passwordHash,
+      role: input.role,
+      active: true,
+      mustChangePassword: true,
+      requiresWorkLocation:
+        input.role === $Enums.UserRole.REQUESTER
+          ? (input.requiresWorkLocation ?? false)
+          : false,
+      companyId,
+      restaurantId,
+      phone: input.phone?.trim() || null,
+      cardNumber,
+      unit,
+      emailChallengeDueAt:
+        input.role === $Enums.UserRole.REQUESTER
+          ? randomEmailChallengeDueAt()
+          : null,
+    });
+
+    const audit = new AuditLogService();
+    await audit.write({
+      userId: actingAdminId,
+      action: 'USER_REGISTER_BY_CARD',
+      entityType: 'User',
+      entityId: created.id,
+      after: {
+        id: created.id,
+        email: created.email,
+        name: created.name,
+        role: created.role,
+        cardNumber,
+        unit,
+      },
+    });
+
+    return {
+      user: serializeUser(created),
+      temporaryPassword,
+    };
   }
 
   async loginWithEmail(email: string, password: string) {

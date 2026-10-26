@@ -2,8 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ArrowLeft } from 'lucide-react';
-import { userApi } from '@/services/user';
+import { ArrowLeft, Copy } from 'lucide-react';
+import {
+  userApi,
+  type CardUnit,
+  type LookupEmployeeResult,
+} from '@/services/user';
 import { companiesApi } from '@/services/companies';
 import { ROUTES } from '@/routes/constants';
 import type { UserRole } from '@/types/auth';
@@ -33,10 +37,21 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+type CreateMode = 'card' | 'manual';
+
+function getErrorMessage(err: unknown, fallback: string) {
+  if (err && typeof err === 'object' && 'message' in err) {
+    return String((err as { message: string }).message);
+  }
+  return fallback;
+}
+
 export function NewUserPage() {
   const { user: authUser } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  const [mode, setMode] = useState<CreateMode>('card');
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -44,6 +59,16 @@ export function NewUserPage() {
   const [role, setRole] = useState<UserRole>('REQUESTER');
   const [companyId, setCompanyId] = useState<string>('');
   const [requiresWorkLocation, setRequiresWorkLocation] = useState(false);
+
+  const [unit, setUnit] = useState<CardUnit>('PEDERTRACTOR');
+  const [cardNumber, setCardNumber] = useState('');
+  const [phone, setPhone] = useState('');
+  const [employee, setEmployee] = useState<LookupEmployeeResult | null>(null);
+  const [lookingUp, setLookingUp] = useState(false);
+  const [lookupError, setLookupError] = useState<string | null>(null);
+  const [temporaryPassword, setTemporaryPassword] = useState<string | null>(
+    null,
+  );
 
   const { data: companies = [] } = useQuery({
     queryKey: ['companies'],
@@ -64,6 +89,71 @@ export function NewUserPage() {
       setRole('REQUESTER');
     }
   }, [authUser, role]);
+
+  useEffect(() => {
+    if (role !== 'REQUESTER') return;
+    const match = companies.find(
+      (c) => c.active && c.code === unit,
+    );
+    if (match) {
+      setCompanyId(match.id);
+    }
+  }, [unit, role, companies]);
+
+  useEffect(() => {
+    if (mode !== 'card') {
+      setEmployee(null);
+      setLookupError(null);
+      setLookingUp(false);
+      return;
+    }
+
+    const trimmed = cardNumber.trim();
+    setEmployee(null);
+    setLookupError(null);
+
+    if (!trimmed) {
+      setLookingUp(false);
+      return;
+    }
+
+    const timer = window.setTimeout(async () => {
+      setLookingUp(true);
+      setLookupError(null);
+      try {
+        const result = await userApi.lookupEmployee(trimmed, unit);
+        setEmployee(result);
+      } catch (err: unknown) {
+        setEmployee(null);
+        setLookupError(
+          getErrorMessage(err, 'Não foi possível buscar o colaborador.'),
+        );
+      } finally {
+        setLookingUp(false);
+      }
+    }, 500);
+
+    return () => window.clearTimeout(timer);
+  }, [cardNumber, unit, mode]);
+
+  const registerByCardMutation = useMutation({
+    mutationFn: () =>
+      userApi.registerByCard({
+        cardNumber: (employee?.cardNumber || cardNumber).trim(),
+        unit,
+        role,
+        email: email.trim() || null,
+        phone: phone.trim() || null,
+        companyId: role === 'REQUESTER' ? companyId || null : null,
+        requiresWorkLocation:
+          role === 'REQUESTER' ? requiresWorkLocation : false,
+      }),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      setTemporaryPassword(data.temporaryPassword);
+      toast.success('Usuário criado.');
+    },
+  });
 
   const registerMutation = useMutation({
     mutationFn: () =>
@@ -89,6 +179,64 @@ export function NewUserPage() {
 
   const needsCompany = role === 'REQUESTER';
 
+  async function copyTemporaryPassword() {
+    if (!temporaryPassword) return;
+    try {
+      await navigator.clipboard.writeText(temporaryPassword);
+      toast.success('Senha temporária copiada.');
+    } catch {
+      toast.error('Não foi possível copiar a senha.');
+    }
+  }
+
+  if (temporaryPassword) {
+    return (
+      <div className='mx-auto max-w-xl space-y-4'>
+        <Card>
+          <CardHeader>
+            <CardTitle>Usuário criado</CardTitle>
+            <CardDescription>
+              Anote a senha temporária. O usuário precisará trocá-la no
+              primeiro login.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className='space-y-3'>
+            <div className='rounded-md border bg-muted/40 p-3'>
+              <p className='text-xs text-muted-foreground'>Senha temporária</p>
+              <div className='mt-1 flex items-center justify-between gap-2'>
+                <code className='text-sm font-semibold tracking-wide'>
+                  {temporaryPassword}
+                </code>
+                <Button
+                  type='button'
+                  variant='outline'
+                  size='sm'
+                  onClick={() => void copyTemporaryPassword()}
+                >
+                  <Copy className='mr-1 size-3.5' />
+                  Copiar
+                </Button>
+              </div>
+            </div>
+            {employee ? (
+              <p className='text-sm text-muted-foreground'>
+                {employee.name} — cartão {employee.cardNumber} ({unit})
+              </p>
+            ) : null}
+          </CardContent>
+          <CardFooter>
+            <Button
+              className='w-full'
+              onClick={() => navigate(ROUTES.USUARIOS)}
+            >
+              Ir para lista de usuários
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className='mx-auto max-w-xl space-y-4'>
       <Button asChild variant='ghost' size='sm'>
@@ -102,36 +250,127 @@ export function NewUserPage() {
         <CardHeader>
           <CardTitle>Novo usuário</CardTitle>
           <CardDescription>
-            Cadastro com e-mail e senha inicial
+            {mode === 'card'
+              ? 'Busca o colaborador na API base pelo cartão e gera senha temporária'
+              : 'Cadastro com e-mail e senha inicial'}
           </CardDescription>
         </CardHeader>
         <CardContent className='space-y-3'>
           <div className='space-y-1.5'>
-            <Label htmlFor='name'>Nome</Label>
-            <Input
-              id='name'
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
+            <Label>Modo de criação</Label>
+            <Select
+              value={mode}
+              onValueChange={(v) => setMode(v as CreateMode)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value='card'>Por cartão (automático)</SelectItem>
+                <SelectItem value='manual'>Manual (e-mail)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-          <div className='space-y-1.5'>
-            <Label htmlFor='email'>E-mail</Label>
-            <Input
-              id='email'
-              type='email'
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
-          <div className='space-y-1.5'>
-            <Label htmlFor='password'>Senha inicial</Label>
-            <Input
-              id='password'
-              type='password'
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
+
+          {mode === 'card' ? (
+            <>
+              <div className='space-y-1.5'>
+                <Label>Unidade</Label>
+                <Select
+                  value={unit}
+                  onValueChange={(v) => setUnit(v as CardUnit)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value='PEDERTRACTOR'>PEDERTRACTOR</SelectItem>
+                    <SelectItem value='TRACTOR'>TRACTOR</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className='space-y-1.5'>
+                <Label htmlFor='cardNumber'>Número do cartão</Label>
+                <Input
+                  id='cardNumber'
+                  value={cardNumber}
+                  onChange={(e) => setCardNumber(e.target.value)}
+                  placeholder='Ex.: 5487'
+                  autoComplete='off'
+                />
+                {lookingUp ? (
+                  <p className='text-xs text-muted-foreground'>
+                    Buscando colaborador…
+                  </p>
+                ) : null}
+                {lookupError ? (
+                  <p className='text-xs text-destructive'>{lookupError}</p>
+                ) : null}
+              </div>
+              <div className='space-y-1.5'>
+                <Label htmlFor='employee-name'>Nome</Label>
+                <Input
+                  id='employee-name'
+                  value={employee?.name ?? ''}
+                  readOnly
+                  placeholder={
+                    lookingUp
+                      ? 'Buscando…'
+                      : 'Preenchido automaticamente ao digitar o cartão'
+                  }
+                  className='bg-muted/40'
+                />
+              </div>
+              <div className='space-y-1.5'>
+                <Label htmlFor='email-optional'>E-mail (opcional)</Label>
+                <Input
+                  id='email-optional'
+                  type='email'
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder='Se vazio, usa e-mail interno do cartão'
+                />
+              </div>
+              <div className='space-y-1.5'>
+                <Label htmlFor='phone'>Telefone (opcional)</Label>
+                <Input
+                  id='phone'
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className='space-y-1.5'>
+                <Label htmlFor='name'>Nome</Label>
+                <Input
+                  id='name'
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </div>
+              <div className='space-y-1.5'>
+                <Label htmlFor='email'>E-mail</Label>
+                <Input
+                  id='email'
+                  type='email'
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+              <div className='space-y-1.5'>
+                <Label htmlFor='password'>Senha inicial</Label>
+                <Input
+                  id='password'
+                  type='password'
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+            </>
+          )}
+
           <div className='space-y-1.5'>
             <Label>Papel</Label>
             <Select
@@ -189,19 +428,35 @@ export function NewUserPage() {
           ) : null}
         </CardContent>
         <CardFooter>
-          <Button
-            className='w-full'
-            disabled={
-              !name.trim() ||
-              !email.trim() ||
-              password.length < 8 ||
-              (needsCompany && !companyId) ||
-              registerMutation.isPending
-            }
-            onClick={() => registerMutation.mutate()}
-          >
-            {registerMutation.isPending ? 'Salvando…' : 'Criar usuário'}
-          </Button>
+          {mode === 'card' ? (
+            <Button
+              className='w-full'
+              disabled={
+                !employee ||
+                (needsCompany && !companyId) ||
+                registerByCardMutation.isPending
+              }
+              onClick={() => registerByCardMutation.mutate()}
+            >
+              {registerByCardMutation.isPending
+                ? 'Salvando…'
+                : 'Criar usuário'}
+            </Button>
+          ) : (
+            <Button
+              className='w-full'
+              disabled={
+                !name.trim() ||
+                !email.trim() ||
+                password.length < 8 ||
+                (needsCompany && !companyId) ||
+                registerMutation.isPending
+              }
+              onClick={() => registerMutation.mutate()}
+            >
+              {registerMutation.isPending ? 'Salvando…' : 'Criar usuário'}
+            </Button>
+          )}
         </CardFooter>
       </Card>
     </div>

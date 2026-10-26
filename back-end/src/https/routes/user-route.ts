@@ -2,6 +2,8 @@ import type { FastifyInstance } from 'fastify';
 import {
   login,
   register,
+  lookupEmployee,
+  registerByCard,
   getMe,
   updateMyAvatar,
   changePassword,
@@ -137,7 +139,10 @@ export async function userRoutes(app: FastifyInstance) {
     {
       preHandler: [
         authMiddleware,
-        roleMiddleware([$Enums.UserRole.SUPER_ADMIN]),
+        roleMiddleware([
+          $Enums.UserRole.SUPER_ADMIN,
+          $Enums.UserRole.RH,
+        ]),
       ],
       schema: {
         tags: ['users'],
@@ -159,6 +164,66 @@ export async function userRoutes(app: FastifyInstance) {
       },
     },
     register,
+  );
+
+  app.post(
+    '/lookup-employee',
+    {
+      preHandler: [
+        authMiddleware,
+        roleMiddleware([
+          $Enums.UserRole.SUPER_ADMIN,
+          $Enums.UserRole.RH,
+        ]),
+      ],
+      schema: {
+        tags: ['users'],
+        summary: 'Buscar colaborador na API base por cartão',
+        security: [{ bearerAuth: [] }],
+        body: {
+          type: 'object',
+          required: ['cardNumber', 'unit'],
+          properties: {
+            cardNumber: { type: 'string' },
+            unit: { type: 'string', enum: ['PEDERTRACTOR', 'TRACTOR'] },
+          },
+        },
+      },
+    },
+    lookupEmployee,
+  );
+
+  app.post(
+    '/register-by-card',
+    {
+      preHandler: [
+        authMiddleware,
+        roleMiddleware([
+          $Enums.UserRole.SUPER_ADMIN,
+          $Enums.UserRole.RH,
+        ]),
+      ],
+      schema: {
+        tags: ['users'],
+        summary: 'Criar usuário a partir do cartão (API base)',
+        security: [{ bearerAuth: [] }],
+        body: {
+          type: 'object',
+          required: ['cardNumber', 'unit', 'role'],
+          properties: {
+            cardNumber: { type: 'string' },
+            unit: { type: 'string', enum: ['PEDERTRACTOR', 'TRACTOR'] },
+            role: { type: 'string', enum: userRoleEnum },
+            email: { type: 'string', format: 'email', nullable: true },
+            phone: { type: 'string', nullable: true },
+            companyId: { type: 'string', format: 'uuid', nullable: true },
+            restaurantId: { type: 'string', format: 'uuid', nullable: true },
+            requiresWorkLocation: { type: 'boolean' },
+          },
+        },
+      },
+    },
+    registerByCard,
   );
 
   app.get(

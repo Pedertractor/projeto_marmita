@@ -37,6 +37,62 @@ export async function register(request: FastifyRequest, reply: FastifyReply) {
   return reply.status(201).send({ user: fullUser });
 }
 
+export async function lookupEmployee(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  const bodySchema = z.object({
+    cardNumber: z.string().min(1, 'Informe o número do cartão'),
+    unit: z.enum($Enums.Unit),
+  });
+
+  const body = bodySchema.parse(request.body);
+  const userService = new UserService();
+  const employee = await userService.lookupEmployee(
+    body.cardNumber,
+    body.unit,
+  );
+
+  return reply.status(200).send({ employee });
+}
+
+export async function registerByCard(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  const bodySchema = z.object({
+    cardNumber: z.string().min(1, 'Informe o número do cartão'),
+    unit: z.enum($Enums.Unit),
+    role: z.enum($Enums.UserRole),
+    email: z.email('E-mail inválido').nullable().optional(),
+    phone: z.string().nullable().optional(),
+    companyId: z.string().uuid().nullable().optional(),
+    restaurantId: z.string().uuid().nullable().optional(),
+    requiresWorkLocation: z.boolean().optional(),
+  });
+
+  const body = bodySchema.parse(request.body);
+
+  if (
+    body.role === $Enums.UserRole.SUPER_ADMIN &&
+    request.user.role !== $Enums.UserRole.SUPER_ADMIN
+  ) {
+    throw new HttpError(
+      'Apenas SUPER_ADMIN pode criar outro SUPER_ADMIN',
+      403,
+    );
+  }
+
+  const userService = new UserService();
+  const result = await userService.registerByCard(body, request.user.sub);
+  const fullUser = await userService.getById(result.user.id);
+
+  return reply.status(201).send({
+    user: fullUser,
+    temporaryPassword: result.temporaryPassword,
+  });
+}
+
 export async function login(request: FastifyRequest, reply: FastifyReply) {
   const bodySchema = z
     .object({

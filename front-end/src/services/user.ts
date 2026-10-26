@@ -35,6 +35,27 @@ export interface RegisterUserPayload {
   requiresWorkLocation?: boolean;
 }
 
+export type CardUnit = 'PEDERTRACTOR' | 'TRACTOR';
+
+export interface LookupEmployeeResult {
+  name: string;
+  cardNumber: string;
+  unit: string;
+  status: boolean;
+  employeeExternalId: string;
+}
+
+export interface RegisterByCardPayload {
+  cardNumber: string;
+  unit: CardUnit;
+  role: UserRole;
+  email?: string | null;
+  phone?: string | null;
+  companyId?: string | null;
+  restaurantId?: string | null;
+  requiresWorkLocation?: boolean;
+}
+
 export interface UpdateUserByAdminPayload {
   name?: string;
   phone?: string | null;
@@ -59,6 +80,28 @@ export const userApi = {
       payload,
     );
     return data.user;
+  },
+
+  async lookupEmployee(
+    cardNumber: string,
+    unit: CardUnit,
+  ): Promise<LookupEmployeeResult> {
+    const { data } = await api.post<{ employee: LookupEmployeeResult }>(
+      `${BASE}/lookup-employee`,
+      { cardNumber, unit },
+    );
+    return data.employee;
+  },
+
+  async registerByCard(payload: RegisterByCardPayload): Promise<{
+    user: UserDetail;
+    temporaryPassword: string;
+  }> {
+    const { data } = await api.post<{
+      user: UserDetail;
+      temporaryPassword: string;
+    }>(`${BASE}/register-by-card`, payload);
+    return data;
   },
 
   async getById(userId: string): Promise<UserDetail> {

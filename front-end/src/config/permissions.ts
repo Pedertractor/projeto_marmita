@@ -5,7 +5,7 @@ export function canAccessUsersArea(role: UserRole): boolean {
 }
 
 export function canCreateUser(role: UserRole): boolean {
-  return role === 'SUPER_ADMIN';
+  return role === 'SUPER_ADMIN' || role === 'RH';
 }
 
 export function canAssignSuperAdminRole(actorRole: UserRole): boolean {
