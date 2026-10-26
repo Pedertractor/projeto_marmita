@@ -6,6 +6,15 @@ import { AuditLogService } from './audit-log-service.js';
 export class CompanyService {
   async list() {
     const repo = new CompanyPrismaRepository(prisma);
+    const byCode = await repo.findByCode('SODEXO');
+    if (!byCode) {
+      const byName = await repo.findByName('Sodexo');
+      if (byName) {
+        await repo.update(byName.id, { code: 'SODEXO', active: true });
+      } else {
+        await repo.create({ name: 'Sodexo', code: 'SODEXO' });
+      }
+    }
     return repo.findAll();
   }
 

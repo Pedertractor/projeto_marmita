@@ -11,7 +11,11 @@ import {
 import { companiesApi } from '@/services/companies';
 import { ROUTES } from '@/routes/constants';
 import type { UserRole } from '@/types/auth';
-import { ROLE_OPTIONS } from '@/pages/Usuarios/userFormConstants';
+import {
+  ROLE_OPTIONS,
+  findSodexoCompany,
+  roleNeedsCompany,
+} from '@/pages/Usuarios/userFormConstants';
 import { useAuth } from '@/contexts/useAuth';
 import {
   canAssignSuperAdminRole,
@@ -90,12 +94,14 @@ export function NewUserPage() {
   }, [authUser, role]);
 
   useEffect(() => {
-    if (role !== 'REQUESTER') return;
-    const match = companies.find(
-      (c) => c.active && c.code === unit,
-    );
-    if (match) {
-      setCompanyId(match.id);
+    if (role === 'REQUESTER') {
+      const match = companies.find((c) => c.active && c.code === unit);
+      if (match) setCompanyId(match.id);
+      return;
+    }
+    if (role === 'RESTAURANT') {
+      const sodexo = findSodexoCompany(companies);
+      if (sodexo) setCompanyId(sodexo.id);
     }
   }, [unit, role, companies]);
 
@@ -143,7 +149,7 @@ export function NewUserPage() {
         role,
         email: email.trim() || null,
         phone: phone.trim() || null,
-        companyId: role === 'REQUESTER' ? companyId || null : null,
+        companyId: roleNeedsCompany(role) ? companyId || null : null,
         requiresWorkLocation:
           role === 'REQUESTER' ? requiresWorkLocation : false,
       }),
@@ -160,7 +166,7 @@ export function NewUserPage() {
         name: name.trim(),
         email: email.trim(),
         role,
-        companyId: role === 'REQUESTER' ? companyId || null : null,
+        companyId: roleNeedsCompany(role) ? companyId || null : null,
         requiresWorkLocation:
           role === 'REQUESTER' ? requiresWorkLocation : false,
       }),
@@ -175,7 +181,7 @@ export function NewUserPage() {
     return <Navigate to={ROUTES.USUARIOS} replace />;
   }
 
-  const needsCompany = role === 'REQUESTER';
+  const needsCompany = roleNeedsCompany(role);
 
   async function copyTemporaryPassword() {
     if (!temporaryPassword) return;
@@ -401,7 +407,7 @@ export function NewUserPage() {
               </Select>
             </div>
           ) : null}
-          {needsCompany ? (
+          {role === 'REQUESTER' ? (
             <div className='flex items-start gap-2 pt-1'>
               <Checkbox
                 id='new-work-location'

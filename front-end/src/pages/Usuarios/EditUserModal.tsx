@@ -1,11 +1,15 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { userApi, type UserDetail } from '@/services/user';
 import { companiesApi } from '@/services/companies';
 import type { ListUser, UserRole } from '@/types/auth';
-import { ROLE_OPTIONS } from '@/pages/Usuarios/userFormConstants';
+import {
+  ROLE_OPTIONS,
+  findSodexoCompany,
+  roleNeedsCompany,
+} from '@/pages/Usuarios/userFormConstants';
 import { useAuth } from '@/contexts/useAuth';
 import { canAssignSuperAdminRole } from '@/config/permissions';
 import { Button } from '@/components/ui/button';
@@ -61,6 +65,13 @@ function EditUserFormBody({
     queryFn: () => companiesApi.list(),
   });
 
+  useEffect(() => {
+    if (role !== 'RESTAURANT') return;
+    if (companyId) return;
+    const sodexo = findSodexoCompany(companies);
+    if (sodexo) setCompanyId(sodexo.id);
+  }, [role, companies, companyId]);
+
   const canAssignSuper =
     authUser?.role != null && canAssignSuperAdminRole(authUser.role);
 
@@ -81,7 +92,7 @@ function EditUserFormBody({
         role,
         requiresWorkLocation:
           role === 'REQUESTER' ? requiresWorkLocation : false,
-        companyId: role === 'REQUESTER' ? companyId || null : null,
+        companyId: roleNeedsCompany(role) ? companyId || null : null,
       }),
     onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
@@ -148,7 +159,7 @@ function EditUserFormBody({
             </Select>
           )}
         </div>
-        {role === 'REQUESTER' ? (
+        {roleNeedsCompany(role) ? (
           <div className='space-y-1.5'>
             <Label>Empresa</Label>
             <Select value={companyId} onValueChange={setCompanyId}>

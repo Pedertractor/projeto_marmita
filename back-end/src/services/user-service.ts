@@ -98,6 +98,44 @@ export class UserService {
     return restaurant.id;
   }
 
+  private async resolveCompanyIdForRestaurant(
+    companyId?: string | null,
+  ): Promise<string> {
+    const companyRepo = new CompanyPrismaRepository(prisma);
+    if (companyId) {
+      const company = await companyRepo.findById(companyId);
+      if (!company || !company.active) {
+        throw new HttpError('Empresa inválida ou inativa', 400);
+      }
+      return company.id;
+    }
+
+    const byCode = await companyRepo.findByCode('SODEXO');
+    if (byCode) {
+      if (!byCode.active) {
+        await companyRepo.update(byCode.id, { active: true });
+      }
+      return byCode.id;
+    }
+
+    const byName = await companyRepo.findByName('Sodexo');
+    if (byName) {
+      if (!byName.active || byName.code !== 'SODEXO') {
+        await companyRepo.update(byName.id, {
+          active: true,
+          code: 'SODEXO',
+        });
+      }
+      return byName.id;
+    }
+
+    const created = await companyRepo.create({
+      name: 'Sodexo',
+      code: 'SODEXO',
+    });
+    return created.id;
+  }
+
   private async assertRoleLinks(
     role: $Enums.UserRole,
     companyId?: string | null,
@@ -145,10 +183,12 @@ export class UserService {
       throw new HttpError('E-mail já cadastrado', 400);
     }
 
-    const companyId =
-      input.role === $Enums.UserRole.REQUESTER
-        ? (input.companyId ?? null)
-        : null;
+    let companyId: string | null = null;
+    if (input.role === $Enums.UserRole.REQUESTER) {
+      companyId = input.companyId ?? null;
+    } else if (input.role === $Enums.UserRole.RESTAURANT) {
+      companyId = await this.resolveCompanyIdForRestaurant(input.companyId);
+    }
     const restaurantId =
       input.role === $Enums.UserRole.RESTAURANT
         ? await this.resolveRestaurantId(input.restaurantId)
@@ -265,7 +305,8 @@ export class UserService {
     }
 
     let companyId =
-      input.role === $Enums.UserRole.REQUESTER
+      input.role === $Enums.UserRole.REQUESTER ||
+      input.role === $Enums.UserRole.RESTAURANT
         ? (input.companyId ?? null)
         : null;
     let restaurantId =
@@ -286,6 +327,7 @@ export class UserService {
     }
 
     if (input.role === $Enums.UserRole.RESTAURANT) {
+      companyId = await this.resolveCompanyIdForRestaurant(companyId);
       restaurantId = await this.resolveRestaurantId(restaurantId);
     }
 
@@ -482,11 +524,18 @@ export class UserService {
         ? data.restaurantId
         : target.restaurantId;
 
+    let nextCompanyIdResolved = nextCompanyId;
     if (nextRole === $Enums.UserRole.RESTAURANT) {
       nextRestaurantId = await this.resolveRestaurantId(nextRestaurantId);
+      nextCompanyIdResolved =
+        await this.resolveCompanyIdForRestaurant(nextCompanyId);
     }
 
-    await this.assertRoleLinks(nextRole, nextCompanyId, nextRestaurantId);
+    await this.assertRoleLinks(
+      nextRole,
+      nextCompanyIdResolved,
+      nextRestaurantId,
+    );
 
     const updated = await userRepository.update(targetUserId, {
       ...(data.name !== undefined ? { name: data.name.trim() } : {}),
@@ -504,7 +553,10 @@ export class UserService {
           ? { requiresWorkLocation: false }
           : {}),
       companyId:
-        nextRole === $Enums.UserRole.REQUESTER ? nextCompanyId : null,
+        nextRole === $Enums.UserRole.REQUESTER ||
+        nextRole === $Enums.UserRole.RESTAURANT
+          ? nextCompanyIdResolved
+          : null,
       restaurantId:
         nextRole === $Enums.UserRole.RESTAURANT ? nextRestaurantId : null,
     });

@@ -142,6 +142,7 @@ async function main() {
 
   await upsertCompany('Pedertractor', 'PEDERTRACTOR');
   await upsertCompany('Tractor', 'TRACTOR');
+  await upsertCompany('Sodexo', 'SODEXO');
   await ensureRestaurant();
   await ensureSuperAdmin();
 
