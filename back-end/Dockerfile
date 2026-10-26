@@ -33,7 +33,7 @@ COPY --from=build /usr/src/app/src ./src
 VOLUME /usr/src/app/uploads
 
 # porta que vai ficar exposta para acessar o back-end
-EXPOSE 5027
+EXPOSE 3404
 
 # prisma generate atualiza src/generated; seed é idempotente.
 CMD ["sh", "-c", "npx prisma generate && npx prisma migrate deploy && npx prisma db seed && npm run start"]

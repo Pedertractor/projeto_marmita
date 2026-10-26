@@ -1,43 +1,42 @@
 name: marmita
 services:
-  # api-marmita:
-  #   build: .
-  #   container_name: solicitacao-marmita-back-end
-  #   restart: always
-  #   ports:
-  #     - 5027:5027
-  #   env_file:
-  #     - .env
-  #   volumes:
-  #     - solicitacao_marmita_uploads:/usr/src/app/uploads
-  #   depends_on:
-  #     - solicitacao-marmita-database
-  #   networks:
-  #     - marmita-network
+  api-marmita:
+    build: .
+    container_name: solicitacao-marmita-back-end
+    restart: always
+    ports:
+      - 3404:3404
+    env_file:
+      - .env
+    volumes:
+      - solicitacao_marmita_uploads:/usr/src/app/uploads
+    depends_on:
+      - solicitacao-marmita-database
+    networks:
+      - marmita-network
 
   solicitacao-marmita-database:
     image: postgres:16
     container_name: solicitacao-marmita-database
     ports:
-      - 5437:5432
+      - 3406:5432
     environment:
       - POSTGRES_USER=docker
       - POSTGRES_PASSWORD=docker
       - POSTGRES_DB=marmita_dev
+    networks:
+      - marmita-network
+    volumes:
+      - solicitacao_marmita_postgres_data:/var/lib/postgresql/data
 
-    # networks:
-    #   - marmita-network
-    # volumes:
-    #   - solicitacao_marmita_postgres_data:/var/lib/postgresql/data
+volumes:
+  solicitacao_marmita_postgres_data:
+    external: true
+    name: solicitacao_marmita_postgres_data
+  solicitacao_marmita_uploads:
+    external: true
+    name: solicitacao_marmita_uploads
 
-# volumes:
-#   solicitacao_marmita_postgres_data:
-#     external: true
-#     name: solicitacao_marmita_postgres_data
-#   solicitacao_marmita_uploads:
-#     external: true
-#     name: solicitacao_marmita_uploads
-
-# networks:
-#   marmita-network:
-#     name: marmita-network
+networks:
+  marmita-network:
+    name: marmita-network

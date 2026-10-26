@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react-swc';
 import tailwindcss from '@tailwindcss/vite';
 import path from 'path';
 
-const localApiTarget = 'http://127.0.0.1:5027';
+const localApiTarget = 'http://127.0.0.1:3404';
 
 // https://vite.dev/config/
 export default defineConfig({

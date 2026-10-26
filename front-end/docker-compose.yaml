@@ -6,7 +6,7 @@ services:
       dockerfile: Dockerfile
     container_name: solicitacao-marmita-frontend
     ports:
-      - '5028:80'
+      - '3405:80'
     networks:
       - marmita-network
 

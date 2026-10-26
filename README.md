@@ -5,7 +5,7 @@ Sistema **Marmita** de solicitação de marmitas com papéis **SUPER_ADMIN**, **
 ## Pré-requisitos
 
 - Node.js 20+
-- PostgreSQL (via Docker do back-end na porta **5437**)
+- PostgreSQL (via Docker do back-end na porta **3406**)
 - Rede Docker `marmita-network` (para o front em container)
 
 ## Subir o ambiente
@@ -15,18 +15,18 @@ Sistema **Marmita** de solicitação de marmitas com papéis **SUPER_ADMIN**, **
 ```bash
 cd back-end
 cp .env.example .env   # se ainda não existir
-docker compose up -d   # Postgres em localhost:5437
+docker compose up -d   # Postgres em localhost:3406
 npm install
 npx prisma migrate dev
 npm run db:seed
-npm run dev            # API em http://127.0.0.1:5027
+npm run dev            # API em http://127.0.0.1:3404
 ```
 
 ### 2. Frontend
 
 ```bash
 cd front-end
-cp .env.example .env   # VITE_API_URL=http://127.0.0.1:5027
+cp .env.example .env   # VITE_API_URL=http://127.0.0.1:3404
 npm install
 npm run dev            # Vite (geralmente http://localhost:5173)
 ```
@@ -36,7 +36,7 @@ npm run dev            # Vite (geralmente http://localhost:5173)
 ```bash
 docker network create marmita-network   # uma vez
 cd front-end
-docker compose up -d --build            # http://localhost:5028
+docker compose up -d --build            # http://localhost:3405
 ```
 
 ## Credenciais do seed
@@ -52,9 +52,9 @@ docker compose up -d --build            # http://localhost:5028
 
 | Serviço  | Porta |
 | -------- | ----- |
-| Postgres | 5437  |
-| API      | 5027  |
-| Front Docker | 5028 |
+| Postgres | 3406  |
+| API      | 3404  |
+| Front Docker | 3405 |
 
 ## Fluxo resumido
 

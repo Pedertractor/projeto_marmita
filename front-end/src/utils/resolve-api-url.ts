@@ -19,7 +19,7 @@ function isLocalApiUrl(url: string): boolean {
  * same-origin proxy (avoids Windows localhost→IPv6 ::1 connection delay).
  */
 export function resolveApiOrigin(): string {
-  const raw = (import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:5027').trim();
+  const raw = (import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:3404').trim();
   let url = raw.replace(/\/$/, '');
 
   if (
@@ -33,7 +33,7 @@ export function resolveApiOrigin(): string {
   url = url.replace(/\/api\/?$/, '');
 
   // Prefer Vite proxy in local development.
-  if (import.meta.env.DEV && isLocalApiUrl(url || 'http://127.0.0.1:5027')) {
+  if (import.meta.env.DEV && isLocalApiUrl(url || 'http://127.0.0.1:3404')) {
     return '';
   }
 

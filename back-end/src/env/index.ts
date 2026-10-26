@@ -7,7 +7,7 @@ const envSchema = z.object({
     .default('development'),
   DATABASE_URL: z.string(),
   HOST: z.string().default('0.0.0.0'),
-  PORT: z.string().default('5027'),
+  PORT: z.string().default('3404'),
   JWT_SECRET: z.string().min(32, 'JWT_SECRET deve ter no mínimo 32 caracteres'),
   JWT_EXPIRES_IN: z.string().default('12h'),
   CORS_ORIGINS: z.string().optional(),
