@@ -67,10 +67,9 @@ function EditUserFormBody({
 
   useEffect(() => {
     if (role !== 'RESTAURANT') return;
-    if (companyId) return;
     const sodexo = findSodexoCompany(companies);
     if (sodexo) setCompanyId(sodexo.id);
-  }, [role, companies, companyId]);
+  }, [role, companies]);
 
   const canAssignSuper =
     authUser?.role != null && canAssignSuperAdminRole(authUser.role);
@@ -162,18 +161,22 @@ function EditUserFormBody({
         {roleNeedsCompany(role) ? (
           <div className='space-y-1.5'>
             <Label>Empresa</Label>
-            <Select value={companyId} onValueChange={setCompanyId}>
-              <SelectTrigger>
-                <SelectValue placeholder='Selecione' />
-              </SelectTrigger>
-              <SelectContent>
-                {companies.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {role === 'RESTAURANT' ? (
+              <Input value='Sodexo' disabled className='bg-muted/40' />
+            ) : (
+              <Select value={companyId} onValueChange={setCompanyId}>
+                <SelectTrigger>
+                  <SelectValue placeholder='Selecione' />
+                </SelectTrigger>
+                <SelectContent>
+                  {companies.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
         ) : null}
         {role === 'REQUESTER' ? (

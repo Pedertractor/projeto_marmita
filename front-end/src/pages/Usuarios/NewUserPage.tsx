@@ -391,20 +391,24 @@ export function NewUserPage() {
           {needsCompany ? (
             <div className='space-y-1.5'>
               <Label>Empresa</Label>
-              <Select value={companyId} onValueChange={setCompanyId}>
-                <SelectTrigger>
-                  <SelectValue placeholder='Selecione a empresa' />
-                </SelectTrigger>
-                <SelectContent>
-                  {companies
-                    .filter((c) => c.active)
-                    .map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
+              {role === 'RESTAURANT' ? (
+                <Input value='Sodexo' disabled className='bg-muted/40' />
+              ) : (
+                <Select value={companyId} onValueChange={setCompanyId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder='Selecione a empresa' />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {companies
+                      .filter((c) => c.active)
+                      .map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
           ) : null}
           {role === 'REQUESTER' ? (

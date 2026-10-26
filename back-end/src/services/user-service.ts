@@ -99,16 +99,9 @@ export class UserService {
   }
 
   private async resolveCompanyIdForRestaurant(
-    companyId?: string | null,
+    _companyId?: string | null,
   ): Promise<string> {
     const companyRepo = new CompanyPrismaRepository(prisma);
-    if (companyId) {
-      const company = await companyRepo.findById(companyId);
-      if (!company || !company.active) {
-        throw new HttpError('Empresa inválida ou inativa', 400);
-      }
-      return company.id;
-    }
 
     const byCode = await companyRepo.findByCode('SODEXO');
     if (byCode) {
