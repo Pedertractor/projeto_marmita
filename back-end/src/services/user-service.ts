@@ -148,6 +148,15 @@ export class UserService {
       if (!company || !company.active) {
         throw new HttpError('Empresa inválida ou inativa', 400);
       }
+      const isSodexo =
+        (company.code ?? '').toUpperCase() === 'SODEXO' ||
+        company.name.trim().toLowerCase() === 'sodexo';
+      if (isSodexo) {
+        throw new HttpError(
+          'Sodexo é exclusiva do papel Restaurante',
+          400,
+        );
+      }
     }
 
     if (role === $Enums.UserRole.RESTAURANT) {

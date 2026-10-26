@@ -14,6 +14,7 @@ import type { UserRole } from '@/types/auth';
 import {
   ROLE_OPTIONS,
   findSodexoCompany,
+  isSodexoCompany,
   roleNeedsCompany,
 } from '@/pages/Usuarios/userFormConstants';
 import { useAuth } from '@/contexts/useAuth';
@@ -400,7 +401,7 @@ export function NewUserPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {companies
-                      .filter((c) => c.active)
+                      .filter((c) => c.active && !isSodexoCompany(c))
                       .map((c) => (
                         <SelectItem key={c.id} value={c.id}>
                           {c.name}

@@ -8,6 +8,7 @@ import type { ListUser, UserRole } from '@/types/auth';
 import {
   ROLE_OPTIONS,
   findSodexoCompany,
+  isSodexoCompany,
   roleNeedsCompany,
 } from '@/pages/Usuarios/userFormConstants';
 import { useAuth } from '@/contexts/useAuth';
@@ -66,10 +67,18 @@ function EditUserFormBody({
   });
 
   useEffect(() => {
-    if (role !== 'RESTAURANT') return;
-    const sodexo = findSodexoCompany(companies);
-    if (sodexo) setCompanyId(sodexo.id);
-  }, [role, companies]);
+    if (role === 'RESTAURANT') {
+      const sodexo = findSodexoCompany(companies);
+      if (sodexo) setCompanyId(sodexo.id);
+      return;
+    }
+    if (role === 'REQUESTER') {
+      const current = companies.find((c) => c.id === companyId);
+      if (current && isSodexoCompany(current)) {
+        setCompanyId('');
+      }
+    }
+  }, [role, companies, companyId]);
 
   const canAssignSuper =
     authUser?.role != null && canAssignSuperAdminRole(authUser.role);
@@ -169,7 +178,9 @@ function EditUserFormBody({
                   <SelectValue placeholder='Selecione' />
                 </SelectTrigger>
                 <SelectContent>
-                  {companies.map((c) => (
+                  {companies
+                    .filter((c) => !isSodexoCompany(c))
+                    .map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.name}
                     </SelectItem>

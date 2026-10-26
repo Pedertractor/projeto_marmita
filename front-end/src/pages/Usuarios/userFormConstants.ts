@@ -11,12 +11,18 @@ export function roleNeedsCompany(role: UserRole) {
   return role === 'REQUESTER' || role === 'RESTAURANT';
 }
 
+export function isSodexoCompany(company: {
+  name: string;
+  code?: string | null;
+}): boolean {
+  const code = (company.code ?? '').toUpperCase();
+  return code === 'SODEXO' || company.name.trim().toLowerCase() === 'sodexo';
+}
+
 export function findSodexoCompany<
   T extends { id: string; name: string; code?: string | null; active?: boolean },
 >(companies: T[]): T | undefined {
-  return companies.find((company) => {
-    if (company.active === false) return false;
-    const code = (company.code ?? '').toUpperCase();
-    return code === 'SODEXO' || company.name.trim().toLowerCase() === 'sodexo';
-  });
+  return companies.find(
+    (company) => company.active !== false && isSodexoCompany(company),
+  );
 }

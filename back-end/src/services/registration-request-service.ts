@@ -225,6 +225,12 @@ export class RegistrationRequestService {
       if (!companyName) {
         throw new HttpError('Informe o nome da empresa', 400);
       }
+      if (companyName.toLowerCase() === 'sodexo') {
+        throw new HttpError(
+          'Sodexo é exclusiva do papel Restaurante',
+          400,
+        );
+      }
       if (!name) {
         throw new HttpError('Informe o nome', 400);
       }
