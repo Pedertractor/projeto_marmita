@@ -20,6 +20,7 @@ type AvatarPickerProps = {
   className?: string;
   label?: string;
   hint?: string;
+  error?: string;
   /** Só o avatar clicável (sem botão e texto de ajuda). */
   compact?: boolean;
 };
@@ -34,6 +35,7 @@ export function AvatarPicker({
   className,
   label = 'Sua foto',
   hint,
+  error,
   compact = false,
 }: AvatarPickerProps) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -82,7 +84,12 @@ export function AvatarPicker({
   return (
     <div className={cn('space-y-2', className)}>
       {label ? (
-        <p className='text-sm font-medium leading-none'>
+        <p
+          className={cn(
+            'text-sm font-medium leading-none',
+            error && 'text-destructive',
+          )}
+        >
           {label}
           {required ? <span className='text-destructive'> *</span> : null}
         </p>
@@ -93,13 +100,20 @@ export function AvatarPicker({
           type='button'
           onClick={openFilePicker}
           disabled={disabled || uploading}
+          aria-invalid={Boolean(error)}
           className={cn(
             'group relative rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            error && 'ring-2 ring-destructive/50',
             (disabled || uploading) && 'pointer-events-none opacity-60',
           )}
           aria-label={value ? 'Trocar foto' : 'Adicionar foto'}
         >
-          <Avatar className='size-20'>
+          <Avatar
+            className={cn(
+              'size-20',
+              error && 'ring-2 ring-destructive ring-offset-2',
+            )}
+          >
             <AvatarImage src={preview} alt={name || 'Foto do usuário'} />
             <AvatarFallback className='bg-muted text-base'>
               {uploading ? (
@@ -139,6 +153,8 @@ export function AvatarPicker({
           </div>
         ) : null}
       </div>
+
+      {error ? <p className='text-sm text-destructive'>{error}</p> : null}
 
       <input
         ref={inputRef}

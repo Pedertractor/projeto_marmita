@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { toast } from 'sonner';
 import { CheckCircle2, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { MarmitaSoupIcon } from '@/components/marmita-soup-icon';
 import { AuthAttribution } from '@/components/auth-attribution';
@@ -37,7 +36,21 @@ const formSectionMotion = {
   transition: { duration: 0.22, ease: 'easeOut' as const },
 };
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 type RegisterStep = 'intro' | 'form';
+
+type FieldErrorKey =
+  | 'avatar'
+  | 'cardNumber'
+  | 'companyName'
+  | 'name'
+  | 'email'
+  | 'phone'
+  | 'password'
+  | 'confirmPassword';
+
+type FieldErrors = Partial<Record<FieldErrorKey, string>>;
 
 export function RegisterPage() {
   const [step, setStep] = useState<RegisterStep>('intro');
@@ -61,21 +74,18 @@ export function RegisterPage() {
     null,
   );
   const [avatar, setAvatar] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
   const isInternal = isInternalCompanyKind(companyKind);
 
-  const emailLooksValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
-    email.trim().toLowerCase(),
-  );
-  const phoneDigits = phone.replace(/\D/g, '');
-  const otherRequiredFilled =
-    companyName.trim().length > 0 &&
-    name.trim().length > 0 &&
-    emailLooksValid &&
-    phoneDigits.length >= 10 &&
-    password.length >= 8 &&
-    confirmPassword.length >= 6 &&
-    password === confirmPassword;
+  function clearFieldError(key: FieldErrorKey) {
+    setFieldErrors((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }
 
   function handleCompanySelect(value: CompanyKind) {
     if (!companyPickerOpen) {
@@ -84,6 +94,71 @@ export function RegisterPage() {
     }
     setCompanyKind(value);
     setCompanyPickerOpen(false);
+    setFieldErrors((prev) => {
+      const next = { ...prev };
+      delete next.cardNumber;
+      delete next.companyName;
+      delete next.name;
+      return next;
+    });
+  }
+
+  function validateForm(): FieldErrors {
+    const errors: FieldErrors = {};
+
+    if (!avatar) {
+      errors.avatar = 'Adicione sua foto';
+    }
+
+    if (isInternal) {
+      const trimmedCard = cardNumber.trim();
+      if (!trimmedCard) {
+        errors.cardNumber = 'Informe o cartão';
+      } else if (validating) {
+        errors.cardNumber = 'Aguarde a validação';
+      } else if (validateError) {
+        errors.cardNumber = validateError;
+      } else if (!employee) {
+        errors.cardNumber = 'Valide o número do cartão';
+      }
+    } else {
+      if (!companyName.trim()) {
+        errors.companyName = 'Informe o nome da empresa';
+      }
+      if (!name.trim()) {
+        errors.name = 'Informe o nome';
+      }
+    }
+
+    const trimmedEmail = email.trim().toLowerCase();
+    if (!trimmedEmail) {
+      errors.email = 'Informe o e-mail';
+    } else if (!EMAIL_REGEX.test(trimmedEmail)) {
+      errors.email = 'E-mail inválido';
+    } else if (emailBlockMessage) {
+      errors.email = emailBlockMessage;
+    }
+
+    const phoneDigits = phone.replace(/\D/g, '');
+    if (!phoneDigits) {
+      errors.phone = 'Informe o celular';
+    } else if (phoneDigits.length < 10) {
+      errors.phone = 'Celular incompleto';
+    }
+
+    if (!password) {
+      errors.password = 'Informe a senha';
+    } else if (password.length < 8) {
+      errors.password = 'Senha deve ter no mínimo 8 caracteres';
+    }
+
+    if (!confirmPassword) {
+      errors.confirmPassword = 'Confirme a senha';
+    } else if (password !== confirmPassword) {
+      errors.confirmPassword = 'As senhas não coincidem';
+    }
+
+    return errors;
   }
 
   useEffect(() => {
@@ -137,7 +212,7 @@ export function RegisterPage() {
 
   useEffect(() => {
     const trimmed = email.trim().toLowerCase();
-    if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+    if (!trimmed || !EMAIL_REGEX.test(trimmed)) {
       setEmailBlockMessage(null);
       return;
     }
@@ -165,35 +240,11 @@ export function RegisterPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (password !== confirmPassword) {
-      toast.error('As senhas não coincidem.');
-      return;
-    }
-    if (password.length < 8) {
-      toast.error('Senha deve ter no mínimo 8 caracteres.');
-      return;
-    }
-    if (isInternal && !employee) {
-      toast.error('Valide o número do cartão antes de continuar.');
-      return;
-    }
-    if (!isInternal && (!companyName.trim() || !name.trim())) {
-      toast.error('Informe empresa e nome.');
-      return;
-    }
+    const errors = validateForm();
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+
     const trimmedEmail = email.trim().toLowerCase();
-    if (trimmedEmail && emailBlockMessage) {
-      toast.error(emailBlockMessage);
-      return;
-    }
-    if (!trimmedEmail) {
-      toast.error('Informe o e-mail.');
-      return;
-    }
-    if (!avatar) {
-      toast.error('Adicione sua foto para continuar.');
-      return;
-    }
 
     setSubmitting(true);
     try {
@@ -202,7 +253,7 @@ export function RegisterPage() {
         password,
         companyKind,
         email: trimmedEmail,
-        avatar,
+        avatar: avatar!,
         ...(isInternal
           ? {
               cardNumber: cardNumber.trim(),
@@ -411,13 +462,17 @@ export function RegisterPage() {
                         </Button>
                       </motion.div>
                     ) : (
-                      <form onSubmit={handleSubmit}>
+                      <form onSubmit={handleSubmit} noValidate>
                         <FieldGroup className='gap-5 md:gap-7'>
                           <AvatarPicker
                             value={avatar}
-                            onChange={setAvatar}
+                            onChange={(dataUrl) => {
+                              setAvatar(dataUrl);
+                              clearFieldError('avatar');
+                            }}
                             name={name || employee?.name || ''}
                             required
+                            error={fieldErrors.avatar}
                           />
 
                           <Field>
@@ -495,14 +550,19 @@ export function RegisterPage() {
                                       <Input
                                         id='cardNumber'
                                         value={cardNumber}
-                                        onChange={(e) =>
-                                          setCardNumber(e.target.value)
-                                        }
+                                        onChange={(e) => {
+                                          setCardNumber(e.target.value);
+                                          clearFieldError('cardNumber');
+                                        }}
                                         placeholder='Nº'
                                         inputMode='numeric'
                                         required
+                                        aria-invalid={Boolean(
+                                          fieldErrors.cardNumber,
+                                        )}
                                         className={cn(
                                           employee &&
+                                            !fieldErrors.cardNumber &&
                                             'border-primary ring-1 ring-primary/20',
                                         )}
                                       />
@@ -543,10 +603,12 @@ export function RegisterPage() {
                                       </div>
                                     </div>
                                   </div>
-                                  {validateError ? (
+                                  {fieldErrors.cardNumber || validateError ? (
                                     <p className='text-sm text-destructive'>
-                                      {validateError}{' '}
-                                      {validateError.includes('login') ? (
+                                      {fieldErrors.cardNumber ?? validateError}{' '}
+                                      {(
+                                        fieldErrors.cardNumber ?? validateError
+                                      )?.includes('login') ? (
                                         <Link
                                           to={ROUTES.LOGIN}
                                           className='underline'
@@ -571,20 +633,38 @@ export function RegisterPage() {
                                   <Input
                                     id='companyName'
                                     value={companyName}
-                                    onChange={(e) =>
-                                      setCompanyName(e.target.value)
-                                    }
+                                    onChange={(e) => {
+                                      setCompanyName(e.target.value);
+                                      clearFieldError('companyName');
+                                    }}
                                     required
+                                    aria-invalid={Boolean(
+                                      fieldErrors.companyName,
+                                    )}
                                   />
+                                  {fieldErrors.companyName ? (
+                                    <p className='text-sm text-destructive'>
+                                      {fieldErrors.companyName}
+                                    </p>
+                                  ) : null}
                                 </Field>
                                 <Field>
                                   <FieldLabel htmlFor='name'>Nome</FieldLabel>
                                   <Input
                                     id='name'
                                     value={name}
-                                    onChange={(e) => setName(e.target.value)}
+                                    onChange={(e) => {
+                                      setName(e.target.value);
+                                      clearFieldError('name');
+                                    }}
                                     required
+                                    aria-invalid={Boolean(fieldErrors.name)}
                                   />
+                                  {fieldErrors.name ? (
+                                    <p className='text-sm text-destructive'>
+                                      {fieldErrors.name}
+                                    </p>
+                                  ) : null}
                                 </Field>
                               </motion.div>
                             )}
@@ -608,17 +688,27 @@ export function RegisterPage() {
                               type='email'
                               autoComplete='email'
                               value={email}
-                              onChange={(e) => setEmail(e.target.value)}
-                              aria-invalid={Boolean(emailBlockMessage)}
+                              onChange={(e) => {
+                                setEmail(e.target.value);
+                                clearFieldError('email');
+                              }}
+                              aria-invalid={Boolean(
+                                fieldErrors.email || emailBlockMessage,
+                              )}
                               required
                               placeholder='seu@email.com'
                             />
-                            {emailBlockMessage ? (
+                            {fieldErrors.email || emailBlockMessage ? (
                               <p className='text-sm text-destructive'>
-                                {emailBlockMessage}{' '}
-                                <Link to={ROUTES.LOGIN} className='underline'>
-                                  Ir para o login
-                                </Link>
+                                {fieldErrors.email ?? emailBlockMessage}{' '}
+                                {emailBlockMessage ||
+                                fieldErrors.email
+                                  ?.toLowerCase()
+                                  .includes('login') ? (
+                                  <Link to={ROUTES.LOGIN} className='underline'>
+                                    Ir para o login
+                                  </Link>
+                                ) : null}
                               </p>
                             ) : null}
                           </Field>
@@ -630,13 +720,20 @@ export function RegisterPage() {
                               inputMode='numeric'
                               autoComplete='tel'
                               value={phone}
-                              onChange={(e) =>
-                                setPhone(formatBrazilianPhone(e.target.value))
-                              }
+                              onChange={(e) => {
+                                setPhone(formatBrazilianPhone(e.target.value));
+                                clearFieldError('phone');
+                              }}
                               placeholder='(00) 00000-0000'
                               maxLength={16}
                               required
+                              aria-invalid={Boolean(fieldErrors.phone)}
                             />
+                            {fieldErrors.phone ? (
+                              <p className='text-sm text-destructive'>
+                                {fieldErrors.phone}
+                              </p>
+                            ) : null}
                           </Field>
                           <Field>
                             <FieldLabel htmlFor='password'>Senha</FieldLabel>
@@ -646,10 +743,14 @@ export function RegisterPage() {
                                 type={showPassword ? 'text' : 'password'}
                                 autoComplete='new-password'
                                 value={password}
-                                onChange={(e) => setPassword(e.target.value)}
+                                onChange={(e) => {
+                                  setPassword(e.target.value);
+                                  clearFieldError('password');
+                                }}
                                 className='hide-native-password-reveal pr-9'
                                 required
                                 minLength={6}
+                                aria-invalid={Boolean(fieldErrors.password)}
                               />
                               <Button
                                 type='button'
@@ -666,6 +767,11 @@ export function RegisterPage() {
                                 {showPassword ? <EyeOff /> : <Eye />}
                               </Button>
                             </div>
+                            {fieldErrors.password ? (
+                              <p className='text-sm text-destructive'>
+                                {fieldErrors.password}
+                              </p>
+                            ) : null}
                           </Field>
                           <Field>
                             <Label htmlFor='confirmPassword'>
@@ -676,13 +782,22 @@ export function RegisterPage() {
                               type={showPassword ? 'text' : 'password'}
                               autoComplete='new-password'
                               value={confirmPassword}
-                              onChange={(e) =>
-                                setConfirmPassword(e.target.value)
-                              }
+                              onChange={(e) => {
+                                setConfirmPassword(e.target.value);
+                                clearFieldError('confirmPassword');
+                              }}
                               className='hide-native-password-reveal'
                               required
                               minLength={6}
+                              aria-invalid={Boolean(
+                                fieldErrors.confirmPassword,
+                              )}
                             />
+                            {fieldErrors.confirmPassword ? (
+                              <p className='text-sm text-destructive'>
+                                {fieldErrors.confirmPassword}
+                              </p>
+                            ) : null}
                           </Field>
                           <Field>
                             <div className='grid grid-cols-2 gap-2'>
@@ -693,20 +808,7 @@ export function RegisterPage() {
                               >
                                 Voltar
                               </Button>
-                              <Button
-                                type='submit'
-                                disabled={
-                                  submitting ||
-                                  checkingEmail ||
-                                  Boolean(emailBlockMessage) ||
-                                  !avatar ||
-                                  (isInternal
-                                    ? !employee ||
-                                      validating ||
-                                      Boolean(validateError)
-                                    : !otherRequiredFilled)
-                                }
-                              >
+                              <Button type='submit' disabled={submitting}>
                                 {submitting
                                   ? 'Enviando…'
                                   : 'Enviar solicitação'}
