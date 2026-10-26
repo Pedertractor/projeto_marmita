@@ -27,7 +27,6 @@ export interface UserDetail {
 export interface RegisterUserPayload {
   email: string;
   name: string;
-  password: string;
   role: UserRole;
   companyId?: string | null;
   restaurantId?: string | null;
@@ -74,12 +73,15 @@ export const userApi = {
     return data.users;
   },
 
-  async register(payload: RegisterUserPayload): Promise<UserDetail> {
-    const { data } = await api.post<{ user: UserDetail }>(
-      `${BASE}/register`,
-      payload,
-    );
-    return data.user;
+  async register(payload: RegisterUserPayload): Promise<{
+    user: UserDetail;
+    temporaryPassword: string;
+  }> {
+    const { data } = await api.post<{
+      user: UserDetail;
+      temporaryPassword: string;
+    }>(`${BASE}/register`, payload);
+    return data;
   },
 
   async lookupEmployee(

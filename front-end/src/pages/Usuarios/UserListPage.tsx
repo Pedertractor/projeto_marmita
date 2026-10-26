@@ -312,7 +312,7 @@ export function UserListPage() {
             </AlertDialogTitle>
             <AlertDialogDescription>
               {pending?.type === 'reset'
-                ? `A senha de “${pending.user.name}” será substituída por uma senha temporária aleatória. No próximo login, o usuário precisará definir uma nova senha.`
+                ? `A senha de “${pending.user.name}” será substituída pela senha temporária padrão (número do cartão para interno ou marmita123 para externo). No próximo login, o usuário precisará definir uma nova senha.`
                 : pending?.type === 'toggle'
                   ? pending.user.active
                     ? `“${pending.user.name}” perderá o acesso ao sistema enquanto estiver inativo.`

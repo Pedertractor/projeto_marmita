@@ -1,4 +1,3 @@
-import { randomBytes } from 'node:crypto';
 import bcrypt from 'bcrypt';
 import { HttpError } from '../https/errors/index.js';
 import { prisma } from '../lib/prisma.js';
@@ -24,10 +23,12 @@ import {
 } from '../lib/avatar-storage.js';
 import { AuditLogService } from './audit-log-service.js';
 
+export const EXTERNAL_TEMPORARY_PASSWORD = 'marmita123';
+
 export type RegisterUserInput = {
   email: string;
   name: string;
-  password: string;
+  password?: string | undefined;
   role: $Enums.UserRole;
   companyId?: string | null | undefined;
   restaurantId?: string | null | undefined;
@@ -35,15 +36,9 @@ export type RegisterUserInput = {
   requiresWorkLocation?: boolean | undefined;
 };
 
-function generateTemporaryPassword(length = 12): string {
-  const alphabet =
-    'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
-  const bytes = randomBytes(length);
-  let password = '';
-  for (let i = 0; i < length; i += 1) {
-    password += alphabet[bytes[i]! % alphabet.length];
-  }
-  return password;
+function temporaryPasswordForUser(cardNumber?: string | null): string {
+  const card = cardNumber?.trim();
+  return card ? card : EXTERNAL_TEMPORARY_PASSWORD;
 }
 
 function serializeUser(
@@ -119,7 +114,10 @@ export class UserService {
     }
   }
 
-  async register(input: RegisterUserInput): Promise<UserWithoutPassword> {
+  async register(input: RegisterUserInput): Promise<{
+    user: UserWithoutPassword;
+    temporaryPassword: string;
+  }> {
     const email = input.email.trim().toLowerCase();
     const userRepository = new UserPrismaRepository(prisma);
 
@@ -134,14 +132,16 @@ export class UserService {
       input.restaurantId,
     );
 
-    const passwordHash = await bcrypt.hash(input.password, 10);
+    const temporaryPassword = EXTERNAL_TEMPORARY_PASSWORD;
+    const passwordHash = await bcrypt.hash(temporaryPassword, 10);
 
-    return userRepository.create({
+    const created = await userRepository.create({
       email,
       name: input.name.trim(),
       passwordHash,
       role: input.role,
       active: input.active ?? true,
+      mustChangePassword: true,
       requiresWorkLocation:
         input.role === $Enums.UserRole.REQUESTER
           ? (input.requiresWorkLocation ?? false)
@@ -159,6 +159,8 @@ export class UserService {
           ? randomEmailChallengeDueAt()
           : null,
     });
+
+    return { user: created, temporaryPassword };
   }
 
   async lookupEmployee(cardNumber: string, unit: $Enums.Unit) {
@@ -276,7 +278,7 @@ export class UserService {
 
     await this.assertRoleLinks(input.role, companyId, restaurantId);
 
-    const temporaryPassword = generateTemporaryPassword();
+    const temporaryPassword = temporaryPasswordForUser(cardNumber);
     const passwordHash = await bcrypt.hash(temporaryPassword, 10);
 
     const created = await userRepository.create({
@@ -539,7 +541,7 @@ export class UserService {
       );
     }
 
-    const temporaryPassword = generateTemporaryPassword();
+    const temporaryPassword = temporaryPasswordForUser(target.cardNumber);
     const passwordHash = await bcrypt.hash(temporaryPassword, 10);
     const updated = await userRepository.resetPassword(
       targetUserId,

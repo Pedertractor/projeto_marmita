@@ -55,7 +55,6 @@ export function NewUserPage() {
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [role, setRole] = useState<UserRole>('REQUESTER');
   const [companyId, setCompanyId] = useState<string>('');
   const [requiresWorkLocation, setRequiresWorkLocation] = useState(false);
@@ -160,16 +159,15 @@ export function NewUserPage() {
       userApi.register({
         name: name.trim(),
         email: email.trim(),
-        password,
         role,
         companyId: role === 'REQUESTER' ? companyId || null : null,
         requiresWorkLocation:
           role === 'REQUESTER' ? requiresWorkLocation : false,
       }),
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
+      setTemporaryPassword(data.temporaryPassword);
       toast.success('Usuário criado.');
-      navigate(ROUTES.USUARIOS);
     },
   });
 
@@ -251,8 +249,8 @@ export function NewUserPage() {
           <CardTitle>Novo usuário</CardTitle>
           <CardDescription>
             {mode === 'card'
-              ? 'Busca o colaborador na API base pelo cartão e gera senha temporária'
-              : 'Cadastro com e-mail e senha inicial'}
+              ? 'Busca o colaborador na API base pelo cartão. A senha temporária é o número do cartão'
+              : 'Cadastro externo com e-mail. A senha temporária será marmita123'}
           </CardDescription>
         </CardHeader>
         <CardContent className='space-y-3'>
@@ -359,15 +357,10 @@ export function NewUserPage() {
                   onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
-              <div className='space-y-1.5'>
-                <Label htmlFor='password'>Senha inicial</Label>
-                <Input
-                  id='password'
-                  type='password'
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </div>
+              <p className='text-xs text-muted-foreground'>
+                A senha temporária será <code>marmita123</code>. O usuário
+                precisará trocá-la no primeiro login.
+              </p>
             </>
           )}
 
@@ -448,7 +441,6 @@ export function NewUserPage() {
               disabled={
                 !name.trim() ||
                 !email.trim() ||
-                password.length < 8 ||
                 (needsCompany && !companyId) ||
                 registerMutation.isPending
               }

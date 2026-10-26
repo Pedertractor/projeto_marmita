@@ -10,7 +10,7 @@ export async function register(request: FastifyRequest, reply: FastifyReply) {
   const bodySchema = z.object({
     email: z.email('E-mail inválido'),
     name: z.string().min(1, 'Nome é obrigatório'),
-    password: z.string().min(8, 'Senha deve ter no mínimo 8 caracteres'),
+    password: z.string().optional(),
     role: z.enum($Enums.UserRole),
     companyId: z.string().uuid().nullable().optional(),
     restaurantId: z.string().uuid().nullable().optional(),
@@ -31,10 +31,13 @@ export async function register(request: FastifyRequest, reply: FastifyReply) {
   }
 
   const userService = new UserService();
-  const user = await userService.register(body);
-  const fullUser = await userService.getById(user.id);
+  const result = await userService.register(body);
+  const fullUser = await userService.getById(result.user.id);
 
-  return reply.status(201).send({ user: fullUser });
+  return reply.status(201).send({
+    user: fullUser,
+    temporaryPassword: result.temporaryPassword,
+  });
 }
 
 export async function lookupEmployee(
@@ -220,19 +223,6 @@ export async function updateUserByAdmin(
     );
   }
 
-  if (
-    !isSuperAdmin &&
-    target.role === $Enums.UserRole.SUPER_ADMIN &&
-    (body.active !== undefined ||
-      body.name !== undefined ||
-      body.phone !== undefined)
-  ) {
-    throw new HttpError(
-      'RH não pode alterar um SUPER_ADMIN',
-      403,
-    );
-  }
-
   if (body.role !== undefined) {
     if (!isSuperAdmin && body.role === $Enums.UserRole.SUPER_ADMIN) {
       throw new HttpError(
@@ -248,33 +238,8 @@ export async function updateUserByAdmin(
     }
   }
 
-  if (
-    (body.companyId !== undefined || body.restaurantId !== undefined) &&
-    !isSuperAdmin
-  ) {
-    throw new HttpError(
-      'Apenas Super Admin pode alterar empresa ou restaurante',
-      403,
-    );
-  }
-
-  const allowRoleChange = isSuperAdmin || isRh;
-  const patch = isSuperAdmin
-    ? body
-    : {
-        ...(body.name !== undefined ? { name: body.name } : {}),
-        ...(body.phone !== undefined ? { phone: body.phone } : {}),
-        ...(body.active !== undefined ? { active: body.active } : {}),
-        ...(body.requiresWorkLocation !== undefined
-          ? { requiresWorkLocation: body.requiresWorkLocation }
-          : {}),
-        ...(allowRoleChange && body.role !== undefined
-          ? { role: body.role }
-          : {}),
-      };
-
-  const user = await userService.updateByAdmin(userId, patch, {
-    allowRoleChange,
+  const user = await userService.updateByAdmin(userId, body, {
+    allowRoleChange: true,
   });
   return reply.status(200).send({ user });
 }

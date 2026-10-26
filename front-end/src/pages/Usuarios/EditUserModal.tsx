@@ -44,8 +44,7 @@ function EditUserFormBody({
 }) {
   const queryClient = useQueryClient();
   const { user: authUser, refreshUser } = useAuth();
-  const isSuperAdmin = authUser?.role === 'SUPER_ADMIN';
-  const isRhLimited = authUser?.role === 'RH';
+  const isRh = authUser?.role === 'RH';
 
   const [name, setName] = useState(detail.name);
   const [phone, setPhone] = useState(() =>
@@ -60,7 +59,6 @@ function EditUserFormBody({
   const { data: companies = [] } = useQuery({
     queryKey: ['companies'],
     queryFn: () => companiesApi.list(),
-    enabled: isSuperAdmin,
   });
 
   const canAssignSuper =
@@ -76,25 +74,15 @@ function EditUserFormBody({
   }, [canAssignSuper, detail.role]);
 
   const updateMutation = useMutation({
-    mutationFn: () => {
-      if (isRhLimited) {
-        return userApi.updateByAdmin(detail.id, {
-          name: name.trim(),
-          phone: phone.trim() || null,
-          role,
-          requiresWorkLocation:
-            role === 'REQUESTER' ? requiresWorkLocation : false,
-        });
-      }
-      return userApi.updateByAdmin(detail.id, {
+    mutationFn: () =>
+      userApi.updateByAdmin(detail.id, {
         name: name.trim(),
         phone: phone.trim() || null,
         role,
         requiresWorkLocation:
           role === 'REQUESTER' ? requiresWorkLocation : false,
         companyId: role === 'REQUESTER' ? companyId || null : null,
-      });
-    },
+      }),
     onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       if (authUser?.id === detail.id) {
@@ -137,7 +125,7 @@ function EditUserFormBody({
         </div>
         <div className='space-y-1.5'>
           <Label>Papel</Label>
-          {detail.role === 'SUPER_ADMIN' && isRhLimited ? (
+          {detail.role === 'SUPER_ADMIN' && isRh ? (
             <Input
               value={
                 ROLE_OPTIONS.find((o) => o.value === detail.role)?.label ??
@@ -160,7 +148,7 @@ function EditUserFormBody({
             </Select>
           )}
         </div>
-        {isSuperAdmin && role === 'REQUESTER' ? (
+        {role === 'REQUESTER' ? (
           <div className='space-y-1.5'>
             <Label>Empresa</Label>
             <Select value={companyId} onValueChange={setCompanyId}>
@@ -218,18 +206,13 @@ export function EditUserModal({ user, open, onClose }: Props) {
     queryFn: () => userApi.getById(user!.id),
     enabled: open && Boolean(user?.id),
   });
-  const { user: authUser } = useAuth();
-  const isRh = authUser?.role === 'RH';
-
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Editar usuário</DialogTitle>
           <DialogDescription>
-            {isRh
-              ? 'Altere nome, celular e papel'
-              : 'Altere nome, celular, papel e empresa'}
+            Altere nome, celular, papel e empresa
           </DialogDescription>
         </DialogHeader>
         {isLoading || !detail ? (

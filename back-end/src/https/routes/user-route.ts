@@ -150,11 +150,11 @@ export async function userRoutes(app: FastifyInstance) {
         security: [{ bearerAuth: [] }],
         body: {
           type: 'object',
-          required: ['email', 'name', 'password', 'role'],
+          required: ['email', 'name', 'role'],
           properties: {
             email: { type: 'string', format: 'email' },
             name: { type: 'string' },
-            password: { type: 'string', minLength: 8 },
+            password: { type: 'string' },
             role: { type: 'string', enum: userRoleEnum },
             companyId: { type: 'string', format: 'uuid', nullable: true },
             restaurantId: { type: 'string', format: 'uuid', nullable: true },
