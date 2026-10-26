@@ -79,6 +79,25 @@ export class UserService {
     }
   }
 
+  private async resolveRestaurantId(
+    restaurantId?: string | null,
+  ): Promise<string> {
+    const restaurantRepo = new RestaurantPrismaRepository(prisma);
+    if (restaurantId) {
+      const restaurant = await restaurantRepo.findById(restaurantId);
+      if (!restaurant || !restaurant.active) {
+        throw new HttpError('Restaurante inválido ou inativo', 400);
+      }
+      return restaurant.id;
+    }
+
+    const restaurant = await restaurantRepo.findFirstActive();
+    if (!restaurant) {
+      throw new HttpError('Nenhum restaurante cadastrado', 400);
+    }
+    return restaurant.id;
+  }
+
   private async assertRoleLinks(
     role: $Enums.UserRole,
     companyId?: string | null,
@@ -126,11 +145,16 @@ export class UserService {
       throw new HttpError('E-mail já cadastrado', 400);
     }
 
-    await this.assertRoleLinks(
-      input.role,
-      input.companyId,
-      input.restaurantId,
-    );
+    const companyId =
+      input.role === $Enums.UserRole.REQUESTER
+        ? (input.companyId ?? null)
+        : null;
+    const restaurantId =
+      input.role === $Enums.UserRole.RESTAURANT
+        ? await this.resolveRestaurantId(input.restaurantId)
+        : null;
+
+    await this.assertRoleLinks(input.role, companyId, restaurantId);
 
     const temporaryPassword = EXTERNAL_TEMPORARY_PASSWORD;
     const passwordHash = await bcrypt.hash(temporaryPassword, 10);
@@ -146,14 +170,8 @@ export class UserService {
         input.role === $Enums.UserRole.REQUESTER
           ? (input.requiresWorkLocation ?? false)
           : false,
-      companyId:
-        input.role === $Enums.UserRole.REQUESTER
-          ? (input.companyId ?? null)
-          : null,
-      restaurantId:
-        input.role === $Enums.UserRole.RESTAURANT
-          ? (input.restaurantId ?? null)
-          : null,
+      companyId,
+      restaurantId,
       emailChallengeDueAt:
         input.role === $Enums.UserRole.REQUESTER
           ? randomEmailChallengeDueAt()
@@ -267,13 +285,8 @@ export class UserService {
       companyId = company.id;
     }
 
-    if (input.role === $Enums.UserRole.RESTAURANT && !restaurantId) {
-      const restaurantRepo = new RestaurantPrismaRepository(prisma);
-      const restaurant = await restaurantRepo.findFirstActive();
-      if (!restaurant) {
-        throw new HttpError('Nenhum restaurante cadastrado', 400);
-      }
-      restaurantId = restaurant.id;
+    if (input.role === $Enums.UserRole.RESTAURANT) {
+      restaurantId = await this.resolveRestaurantId(restaurantId);
     }
 
     await this.assertRoleLinks(input.role, companyId, restaurantId);
@@ -464,10 +477,14 @@ export class UserService {
     const nextRole = data.role ?? target.role;
     const nextCompanyId =
       data.companyId !== undefined ? data.companyId : target.companyId;
-    const nextRestaurantId =
+    let nextRestaurantId =
       data.restaurantId !== undefined
         ? data.restaurantId
         : target.restaurantId;
+
+    if (nextRole === $Enums.UserRole.RESTAURANT) {
+      nextRestaurantId = await this.resolveRestaurantId(nextRestaurantId);
+    }
 
     await this.assertRoleLinks(nextRole, nextCompanyId, nextRestaurantId);
 
