@@ -4,6 +4,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        # URL que o browser dos usuários vai chamar (não use 127.0.0.1 em produção)
+        VITE_API_URL: ${VITE_API_URL:-http://10.20.2.77:3404}
+        # ALLOW_INSECURE_TLS: "1"
     container_name: solicitacao-marmita-frontend
     ports:
       - '3405:80'
