@@ -19,6 +19,11 @@ export async function authMiddleware(
     throw new HttpError('Usuário inativo', 401);
   }
 
+  const tokenVersion = request.user.tv ?? 0;
+  if (tokenVersion !== principal.tokenVersion) {
+    throw new HttpError('Sessão expirada. Faça login novamente.', 401);
+  }
+
   const routeUrl = request.routeOptions.url ?? request.url;
   const isPasswordChangeRoute = routeUrl.endsWith('/users/me/change-password');
   const isCurrentUserRoute = /\/users\/me$/.test(routeUrl);
@@ -38,7 +43,11 @@ export async function authMiddleware(
     throw new HttpError('Verifique seu e-mail para continuar', 403);
   }
 
-  request.user = { sub: principal.id, role: principal.role };
+  request.user = {
+    sub: principal.id,
+    role: principal.role,
+    tv: principal.tokenVersion,
+  };
 }
 
 function isEmailChallengeAllowedRoute(routeUrl: string): boolean {

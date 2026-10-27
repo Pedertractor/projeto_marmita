@@ -8,6 +8,7 @@ import {
 import { $Enums } from '../../generated/prisma/client.js';
 import { authMiddleware } from '../../middlewares/auth-middleware.js';
 import { roleMiddleware } from '../../middlewares/auth-role-middleware.js';
+import { expensiveReportRateLimit } from '../rate-limits.js';
 
 export async function dashboardRoutes(app: FastifyInstance) {
   app.get(
@@ -53,6 +54,7 @@ export async function reportRoutes(app: FastifyInstance) {
   app.get(
     '/by-company',
     {
+      config: { rateLimit: expensiveReportRateLimit },
       preHandler: [
         authMiddleware,
         roleMiddleware([

@@ -1,6 +1,7 @@
 import z from 'zod';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { $Enums } from '../../generated/prisma/client.js';
+import { COMPANY_NAME_MAX_LENGTH } from '../../lib/validation-limits.js';
 import { CompanyService } from '../../services/company-service.js';
 
 export async function listCompanies(
@@ -17,7 +18,10 @@ export async function createCompany(
   reply: FastifyReply,
 ) {
   const bodySchema = z.object({
-    name: z.string().min(1, 'Nome é obrigatório'),
+    name: z
+      .string()
+      .min(1, 'Nome é obrigatório')
+      .max(COMPANY_NAME_MAX_LENGTH),
     active: z.boolean().optional(),
   });
   const body = bodySchema.parse(request.body);
@@ -53,7 +57,7 @@ export async function updateCompany(
 
   const bodySchema = z
     .object({
-      name: z.string().min(1).optional(),
+      name: z.string().min(1).max(COMPANY_NAME_MAX_LENGTH).optional(),
       active: z.boolean().optional(),
     })
     .refine((b) => b.name !== undefined || b.active !== undefined, {

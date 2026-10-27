@@ -2,6 +2,8 @@
 
 Sistema **Marmita** de solicitação de marmitas com papéis **SUPER_ADMIN**, **RH**, **RESTAURANT** e **REQUESTER**. Mascote: **Tigela**.
 
+Documentação de segurança (autenticação, rate limit, autorização, deploy): veja [SECURITY.md](./SECURITY.md).
+
 ## Pré-requisitos
 
 - Node.js 20+

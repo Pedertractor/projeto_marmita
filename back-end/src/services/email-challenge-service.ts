@@ -8,10 +8,14 @@ import {
   randomEmailChallengeDueAt,
 } from '../lib/email-challenge.js';
 import { isSyntheticInternalEmail } from '../lib/internal-user-email.js';
+import { BCRYPT_COST } from '../lib/security-constants.js';
 import { prisma } from '../lib/prisma.js';
 import { UserPrismaRepository } from '../repositories/prisma/user-repository.js';
 import { $Enums } from '../generated/prisma/client.js';
+import { AuditLogService } from './audit-log-service.js';
 import { sendEmailChallengeCode } from './mail-service.js';
+
+export const EMAIL_CHALLENGE_MAX_ATTEMPTS = 5;
 
 export type SendEmailChallengeResult = {
   sent: boolean;
@@ -66,7 +70,7 @@ export class EmailChallengeService {
     }
 
     const code = createEmailChallengeCode();
-    const emailChallengeCodeHash = await bcrypt.hash(code, 10);
+    const emailChallengeCodeHash = await bcrypt.hash(code, BCRYPT_COST);
     const emailChallengeExpiresAt = new Date(now + EMAIL_CHALLENGE_TTL_MS);
     const emailChallengeSentAt = new Date(now);
 
@@ -111,8 +115,25 @@ export class EmailChallengeService {
       throw new HttpError('Código expirado. Solicite outro.', 400);
     }
 
+    if (user.emailChallengeAttempts >= EMAIL_CHALLENGE_MAX_ATTEMPTS) {
+      await userRepository.clearEmailChallengeCode(userId);
+      throw new HttpError(
+        'Muitas tentativas inválidas. Solicite um novo código.',
+        400,
+      );
+    }
+
     const matches = await bcrypt.compare(code, user.emailChallengeCodeHash);
     if (!matches) {
+      const attempts =
+        await userRepository.incrementEmailChallengeAttempts(userId);
+      if (attempts >= EMAIL_CHALLENGE_MAX_ATTEMPTS) {
+        await userRepository.clearEmailChallengeCode(userId);
+        throw new HttpError(
+          'Muitas tentativas inválidas. Solicite um novo código.',
+          400,
+        );
+      }
       throw new HttpError('Código inválido', 400);
     }
 
@@ -161,5 +182,15 @@ export class EmailChallengeService {
     }
 
     await userRepository.updateEmail(userId, normalized);
+
+    const audit = new AuditLogService();
+    await audit.write({
+      userId,
+      action: 'USER_EMAIL_UPDATE',
+      entityType: 'User',
+      entityId: userId,
+      before: { email: user.email },
+      after: { email: normalized },
+    });
   }
 }

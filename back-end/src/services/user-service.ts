@@ -21,6 +21,10 @@ import {
   deleteAvatar,
   saveAvatarFromDataUrl,
 } from '../lib/avatar-storage.js';
+import {
+  BCRYPT_COST,
+  DUMMY_PASSWORD_HASH,
+} from '../lib/security-constants.js';
 import { AuditLogService } from './audit-log-service.js';
 
 export const EXTERNAL_TEMPORARY_PASSWORD = 'marmita123';
@@ -173,7 +177,10 @@ export class UserService {
     }
   }
 
-  async register(input: RegisterUserInput): Promise<{
+  async register(
+    input: RegisterUserInput,
+    actingAdminId?: string,
+  ): Promise<{
     user: UserWithoutPassword;
     temporaryPassword: string;
   }> {
@@ -199,7 +206,7 @@ export class UserService {
     await this.assertRoleLinks(input.role, companyId, restaurantId);
 
     const temporaryPassword = EXTERNAL_TEMPORARY_PASSWORD;
-    const passwordHash = await bcrypt.hash(temporaryPassword, 10);
+    const passwordHash = await bcrypt.hash(temporaryPassword, BCRYPT_COST);
 
     const created = await userRepository.create({
       email,
@@ -218,6 +225,20 @@ export class UserService {
         input.role === $Enums.UserRole.REQUESTER
           ? randomEmailChallengeDueAt()
           : null,
+    });
+
+    const audit = new AuditLogService();
+    await audit.write({
+      userId: actingAdminId ?? null,
+      action: 'USER_REGISTER',
+      entityType: 'User',
+      entityId: created.id,
+      after: {
+        id: created.id,
+        email: created.email,
+        name: created.name,
+        role: created.role,
+      },
     });
 
     return { user: created, temporaryPassword };
@@ -336,7 +357,7 @@ export class UserService {
     await this.assertRoleLinks(input.role, companyId, restaurantId);
 
     const temporaryPassword = temporaryPasswordForUser(cardNumber);
-    const passwordHash = await bcrypt.hash(temporaryPassword, 10);
+    const passwordHash = await bcrypt.hash(temporaryPassword, BCRYPT_COST);
 
     const created = await userRepository.create({
       email,
@@ -382,17 +403,25 @@ export class UserService {
     };
   }
 
+  private async verifyPasswordConstantTime(
+    password: string,
+    passwordHash: string | null | undefined,
+  ): Promise<boolean> {
+    const hash = passwordHash || DUMMY_PASSWORD_HASH;
+    const match = await bcrypt.compare(password, hash);
+    return Boolean(passwordHash) && match;
+  }
+
   async loginWithEmail(email: string, password: string) {
     const userRepository = new UserPrismaRepository(prisma);
     const normalizedEmail = email.trim().toLowerCase();
 
     const user = await userRepository.findByEmailForAuth(normalizedEmail);
-    if (!user || !user.active) {
-      throw new HttpError('Credenciais inválidas', 401);
-    }
-
-    const match = await bcrypt.compare(password, user.passwordHash);
-    if (!match) {
+    const match = await this.verifyPasswordConstantTime(
+      password,
+      user?.active ? user.passwordHash : null,
+    );
+    if (!user || !user.active || !match) {
       throw new HttpError('Credenciais inválidas', 401);
     }
 
@@ -404,6 +433,7 @@ export class UserService {
       name: user.name,
       role: user.role,
       mustChangePassword: user.mustChangePassword,
+      tokenVersion: user.tokenVersion,
       companyId: user.companyId,
       restaurantId: user.restaurantId,
     };
@@ -421,12 +451,11 @@ export class UserService {
       normalizedCard,
       unit,
     );
-    if (!user || !user.active) {
-      throw new HttpError('Credenciais inválidas', 401);
-    }
-
-    const match = await bcrypt.compare(password, user.passwordHash);
-    if (!match) {
+    const match = await this.verifyPasswordConstantTime(
+      password,
+      user?.active ? user.passwordHash : null,
+    );
+    if (!user || !user.active || !match) {
       throw new HttpError('Credenciais inválidas', 401);
     }
 
@@ -438,6 +467,7 @@ export class UserService {
       name: user.name,
       role: user.role,
       mustChangePassword: user.mustChangePassword,
+      tokenVersion: user.tokenVersion,
       companyId: user.companyId,
       restaurantId: user.restaurantId,
     };
@@ -479,6 +509,7 @@ export class UserService {
     active: boolean;
     mustChangePassword: boolean;
     needsEmailChallenge: boolean;
+    tokenVersion: number;
   }> {
     const userRepository = new UserPrismaRepository(prisma);
     const user = await userRepository.findById(userId);
@@ -492,6 +523,7 @@ export class UserService {
       active: user.active,
       mustChangePassword: user.mustChangePassword,
       needsEmailChallenge: needsEmailChallenge(user),
+      tokenVersion: user.tokenVersion,
     };
   }
 
@@ -506,12 +538,26 @@ export class UserService {
       companyId?: string | null | undefined;
       restaurantId?: string | null | undefined;
     },
-    options?: { allowRoleChange?: boolean },
+    options?: {
+      allowRoleChange?: boolean;
+      actingAdminId?: string;
+      actingAdminRole?: $Enums.UserRole;
+    },
   ) {
     const userRepository = new UserPrismaRepository(prisma);
     const target = await userRepository.findById(targetUserId);
     if (!target) {
       throw new HttpError('Usuário não encontrado', 404);
+    }
+
+    if (
+      options?.actingAdminRole === $Enums.UserRole.RH &&
+      target.role === $Enums.UserRole.SUPER_ADMIN
+    ) {
+      throw new HttpError(
+        'RH não pode editar ou desativar um SUPER_ADMIN',
+        403,
+      );
     }
 
     if (data.role !== undefined && options?.allowRoleChange === false) {
@@ -539,6 +585,12 @@ export class UserService {
       nextRestaurantId,
     );
 
+    const roleChanged =
+      data.role !== undefined && data.role !== target.role;
+    const deactivated =
+      data.active === false && target.active === true;
+    const bumpTokenVersion = roleChanged || deactivated;
+
     const updated = await userRepository.update(targetUserId, {
       ...(data.name !== undefined ? { name: data.name.trim() } : {}),
       ...(data.phone !== undefined ? { phone: data.phone } : {}),
@@ -561,6 +613,29 @@ export class UserService {
           : null,
       restaurantId:
         nextRole === $Enums.UserRole.RESTAURANT ? nextRestaurantId : null,
+      bumpTokenVersion,
+    });
+
+    const audit = new AuditLogService();
+    await audit.write({
+      userId: options?.actingAdminId ?? null,
+      action: 'USER_UPDATE_BY_ADMIN',
+      entityType: 'User',
+      entityId: targetUserId,
+      before: {
+        name: target.name,
+        role: target.role,
+        active: target.active,
+        companyId: target.companyId,
+        restaurantId: target.restaurantId,
+      },
+      after: {
+        name: updated.name,
+        role: updated.role,
+        active: updated.active,
+        companyId: updated.companyId,
+        restaurantId: updated.restaurantId,
+      },
     });
 
     return serializeUser(updated);
@@ -579,8 +654,17 @@ export class UserService {
       );
     }
 
-    const passwordHash = await bcrypt.hash(newPassword, 10);
+    const passwordHash = await bcrypt.hash(newPassword, BCRYPT_COST);
     const updated = await userRepository.updatePassword(userId, passwordHash);
+
+    const audit = new AuditLogService();
+    await audit.write({
+      userId,
+      action: 'USER_CHANGE_PASSWORD',
+      entityType: 'User',
+      entityId: userId,
+    });
+
     return serializeUser(updated);
   }
 
@@ -613,11 +697,20 @@ export class UserService {
     }
 
     const temporaryPassword = temporaryPasswordForUser(target.cardNumber);
-    const passwordHash = await bcrypt.hash(temporaryPassword, 10);
+    const passwordHash = await bcrypt.hash(temporaryPassword, BCRYPT_COST);
     const updated = await userRepository.resetPassword(
       targetUserId,
       passwordHash,
     );
+
+    const audit = new AuditLogService();
+    await audit.write({
+      userId: actingAdminId,
+      action: 'USER_RESET_PASSWORD',
+      entityType: 'User',
+      entityId: targetUserId,
+      metadata: { targetEmail: target.email },
+    });
 
     return {
       user: serializeUser(updated),
@@ -667,6 +760,20 @@ export class UserService {
     const previousAvatar = target.avatarPath;
     await userRepository.deleteById(targetUserId);
     await deleteAvatar(previousAvatar);
+
+    const audit = new AuditLogService();
+    await audit.write({
+      userId: actingAdminId,
+      action: 'USER_DELETE_BY_ADMIN',
+      entityType: 'User',
+      entityId: targetUserId,
+      before: {
+        email: target.email,
+        name: target.name,
+        role: target.role,
+      },
+    });
+
     return { ok: true as const };
   }
 

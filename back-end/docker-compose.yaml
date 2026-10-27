@@ -19,11 +19,12 @@ services:
     image: postgres:16
     container_name: solicitacao-marmita-database
     ports:
-      - 3406:5432
+      # Só localhost — evita exposição acidental na rede
+      - 127.0.0.1:3406:5432
     environment:
-      - POSTGRES_USER=docker
-      - POSTGRES_PASSWORD=docker
-      - POSTGRES_DB=marmita_dev
+      - POSTGRES_USER=${POSTGRES_USER:-docker}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-docker}
+      - POSTGRES_DB=${POSTGRES_DB:-marmita_dev}
     networks:
       - marmita-network
     volumes:

@@ -59,7 +59,7 @@ function applyErrorInterceptor(api: AxiosInstance) {
           message = apiMessage?.trim() || 'Verifique seu e-mail para continuar';
         } else if (
           status === 401 &&
-          error.response.data.error !== 'Credenciais inválidas'
+          error.response.data?.error !== 'Credenciais inválidas'
         ) {
           message =
             apiMessage?.trim() || 'Sua sessão expirou, faça login novamente.';

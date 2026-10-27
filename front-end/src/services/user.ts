@@ -142,8 +142,8 @@ export const userApi = {
 
   async changePasswordFirstLogin(
     newPassword: string,
-  ): Promise<{ user: AuthUser }> {
-    const { data } = await api.put<{ user: AuthUser }>(
+  ): Promise<{ user: AuthUser; token: string }> {
+    const { data } = await api.put<{ user: AuthUser; token: string }>(
       `${BASE}/me/change-password`,
       { newPassword },
     );

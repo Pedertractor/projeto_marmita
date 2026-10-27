@@ -16,7 +16,7 @@ import { healthRoutes } from './https/routes/health-route.js';
 const allowedOrigins = new Set(allowedCorsOrigins());
 
 export const app = Fastify({
-  trustProxy: true,
+  trustProxy: env.TRUST_PROXY,
   bodyLimit: 1_048_576,
 });
 
@@ -49,7 +49,17 @@ app.register(rateLimit, {
   global: true,
   max: 100,
   timeWindow: '1 minute',
-  errorResponseBuilder: (_request, context) => {
+  errorResponseBuilder: (request, context) => {
+    request.log.warn(
+      {
+        ip: request.ip,
+        url: request.url,
+        method: request.method,
+        max: context.max,
+        after: context.after,
+      },
+      'Rate limit exceeded',
+    );
     const error = new Error(
       'Muitas requisições. Tente novamente em instantes.',
     ) as Error & { statusCode: number };
@@ -62,6 +72,10 @@ app.register(jwt, {
   secret: env.JWT_SECRET,
   sign: {
     expiresIn: env.JWT_EXPIRES_IN,
+    algorithm: 'HS256',
+  },
+  verify: {
+    algorithms: ['HS256'],
   },
 });
 
@@ -114,4 +128,10 @@ if (env.NODE_ENV !== 'production') {
 app.register(healthRoutes);
 app.register(mainRoutes, { prefix: '/api' });
 
-app.setErrorHandler(apiErrorHandler);
+app.setErrorHandler((error, request, reply) => {
+  return apiErrorHandler(
+    error as Parameters<typeof apiErrorHandler>[0],
+    request as Parameters<typeof apiErrorHandler>[1],
+    reply as Parameters<typeof apiErrorHandler>[2],
+  );
+});

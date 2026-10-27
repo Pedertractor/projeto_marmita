@@ -85,12 +85,15 @@ model User {
   active                  Boolean   @default(true)
   mustChangePassword      Boolean   @default(true)
   requiresWorkLocation    Boolean   @default(false)
+  /** Incrementado ao trocar/resetar senha, desativar ou mudar papel — invalida JWTs antigos. */
+  tokenVersion            Int       @default(0)
   avatarPath              String?
   emailChallengeDueAt     DateTime?
   emailVerifiedAt         DateTime?
   emailChallengeCodeHash  String?
   emailChallengeExpiresAt DateTime?
   emailChallengeSentAt    DateTime?
+  emailChallengeAttempts  Int       @default(0)
   passwordResetCodeHash   String?
   passwordResetExpiresAt  DateTime?
   passwordResetSentAt     DateTime?

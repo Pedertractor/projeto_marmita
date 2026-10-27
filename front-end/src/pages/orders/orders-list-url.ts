@@ -48,6 +48,18 @@ export type OrdersListLocationState = {
 
 };
 
+/** Aceita apenas caminhos internos relativos (começam com `/`, sem `//`). */
+export function safeInternalPath(
+  value: string | undefined,
+  fallback: string,
+): string {
+  if (!value) return fallback;
+  const trimmed = value.trim();
+  if (!trimmed.startsWith('/') || trimmed.startsWith('//')) return fallback;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) return fallback;
+  return trimmed;
+}
+
 
 
 export function parseOrdersListFilters(

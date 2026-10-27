@@ -3,6 +3,7 @@ import { $Enums, Prisma } from '../generated/prisma/client.js';
 import { HttpError } from '../https/errors/index.js';
 import { ApiPedertractorEmployee } from '../integrations/api-pedertractor-employee.js';
 import { prisma } from '../lib/prisma.js';
+import { BCRYPT_COST } from '../lib/security-constants.js';
 import { CompanyPrismaRepository } from '../repositories/prisma/company-repository.js';
 import { MealPricePrismaRepository } from '../repositories/prisma/meal-price-repository.js';
 import { RegistrationRequestPrismaRepository } from '../repositories/prisma/registration-request-repository.js';
@@ -241,7 +242,7 @@ export class RegistrationRequestService {
       }
     }
 
-    const passwordHash = await bcrypt.hash(input.password, 10);
+    const passwordHash = await bcrypt.hash(input.password, BCRYPT_COST);
     const avatarPath = await saveAvatarFromDataUrl(input.avatar);
     try {
       const created = await regRepo.create({

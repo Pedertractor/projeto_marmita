@@ -4,10 +4,21 @@ import { $Enums } from '../src/generated/prisma/client.js';
 import { prisma } from '../src/lib/prisma.js';
 import { ApiPedertractorEmployee } from '../src/integrations/api-pedertractor-employee.js';
 import { syntheticEmailForCard } from '../src/lib/internal-user-email.js';
+import { BCRYPT_COST } from '../src/lib/security-constants.js';
 
 const SUPER_ADMIN_CARD = '5487';
 const SUPER_ADMIN_UNIT = $Enums.Unit.PEDERTRACTOR;
 const SUPER_ADMIN_PASSWORD = 'admin123';
+
+if (
+  process.env.NODE_ENV === 'production' &&
+  process.env.ALLOW_PROD_SEED !== 'true'
+) {
+  console.error(
+    'Seed recusado em produção. Defina ALLOW_PROD_SEED=true apenas se souber o que está fazendo.',
+  );
+  process.exit(1);
+}
 
 async function upsertCompany(name: string, code?: string | null) {
   if (code) {
@@ -110,7 +121,7 @@ async function ensureSuperAdmin() {
     return byEmail;
   }
 
-  const passwordHash = await bcrypt.hash(SUPER_ADMIN_PASSWORD, 10);
+  const passwordHash = await bcrypt.hash(SUPER_ADMIN_PASSWORD, BCRYPT_COST);
 
   const created = await prisma.user.create({
     data: {
@@ -128,10 +139,7 @@ async function ensureSuperAdmin() {
   });
 
   console.log(
-    `Seed: SUPER_ADMIN criado — ${name} (cartão ${cardNumber} / ${SUPER_ADMIN_UNIT}).`,
-  );
-  console.log(
-    `Super admin: cartão ${cardNumber} / ${SUPER_ADMIN_UNIT} / ${SUPER_ADMIN_PASSWORD} (troca obrigatória no 1º login)`,
+    `Seed: SUPER_ADMIN criado — ${name} (cartão ${cardNumber} / ${SUPER_ADMIN_UNIT}). Senha inicial no README (troca obrigatória no 1º login).`,
   );
 
   return created;

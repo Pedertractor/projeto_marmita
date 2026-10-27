@@ -1,6 +1,15 @@
 import z from 'zod';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { $Enums } from '../../generated/prisma/client.js';
+import {
+  AVATAR_DATA_URL_MAX_LENGTH,
+  CARD_NUMBER_MAX_LENGTH,
+  COMPANY_NAME_MAX_LENGTH,
+  NAME_MAX_LENGTH,
+  PASSWORD_MAX_LENGTH,
+  PHONE_MAX_LENGTH,
+  REVIEW_NOTE_MAX_LENGTH,
+} from '../../lib/validation-limits.js';
 import { RegistrationRequestService } from '../../services/registration-request-service.js';
 
 export async function checkRegistrationAvailability(
@@ -21,7 +30,10 @@ export async function validateEmployeeRegistration(
   reply: FastifyReply,
 ) {
   const bodySchema = z.object({
-    cardNumber: z.string().min(1, 'Cartão é obrigatório'),
+    cardNumber: z
+      .string()
+      .min(1, 'Cartão é obrigatório')
+      .max(CARD_NUMBER_MAX_LENGTH),
     unit: z.enum($Enums.Unit),
   });
   const body = bodySchema.parse(request.body);
@@ -36,14 +48,23 @@ export async function createRegistrationRequest(
 ) {
   const bodySchema = z
     .object({
-      name: z.string().optional(),
+      name: z.string().max(NAME_MAX_LENGTH).optional(),
       email: z.email('E-mail inválido'),
-      phone: z.string().min(8, 'Informe o celular'),
-      password: z.string().min(8, 'Senha deve ter no mínimo 8 caracteres'),
+      phone: z
+        .string()
+        .min(8, 'Informe o celular')
+        .max(PHONE_MAX_LENGTH),
+      password: z
+        .string()
+        .min(8, 'Senha deve ter no mínimo 8 caracteres')
+        .max(PASSWORD_MAX_LENGTH),
       companyKind: z.enum($Enums.CompanyKind),
-      companyName: z.string().optional(),
-      cardNumber: z.string().optional(),
-      avatar: z.string().min(1, 'Envie sua foto'),
+      companyName: z.string().max(COMPANY_NAME_MAX_LENGTH).optional(),
+      cardNumber: z.string().max(CARD_NUMBER_MAX_LENGTH).optional(),
+      avatar: z
+        .string()
+        .min(1, 'Envie sua foto')
+        .max(AVATAR_DATA_URL_MAX_LENGTH),
     })
     .superRefine((data, ctx) => {
       const internal =
@@ -96,7 +117,7 @@ export async function approveRegistrationRequest(
   });
   const bodySchema = z.object({
     mealPriceAmount: z.number().positive('Informe o valor da marmita'),
-    companyName: z.string().optional(),
+    companyName: z.string().max(COMPANY_NAME_MAX_LENGTH).optional(),
     requiresWorkLocation: z.boolean().optional(),
   });
   const { id } = paramsSchema.parse(request.params);
@@ -114,7 +135,7 @@ export async function rejectRegistrationRequest(
     id: z.string().uuid(),
   });
   const bodySchema = z.object({
-    note: z.string().optional(),
+    note: z.string().max(REVIEW_NOTE_MAX_LENGTH).optional(),
   });
   const { id } = paramsSchema.parse(request.params);
   const body = bodySchema.parse(request.body);

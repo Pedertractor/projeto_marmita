@@ -1,5 +1,20 @@
 import z from 'zod';
 import type { FastifyReply, FastifyRequest } from 'fastify';
+import {
+  assertLoginAccountAllowed,
+  clearLoginAccountFailures,
+  loginAccountKey,
+  recordLoginAccountFailure,
+} from '../../lib/login-account-throttle.js';
+import {
+  AVATAR_DATA_URL_MAX_LENGTH,
+  CARD_NUMBER_MAX_LENGTH,
+  NAME_MAX_LENGTH,
+  PASSWORD_MAX_LENGTH,
+  PHONE_MAX_LENGTH,
+  RESET_TOKEN_MAX_LENGTH,
+} from '../../lib/validation-limits.js';
+import { AuditLogService } from '../../services/audit-log-service.js';
 import { EmailChallengeService } from '../../services/email-challenge-service.js';
 import { PasswordResetService } from '../../services/password-reset-service.js';
 import { UserService } from '../../services/user-service.js';
@@ -9,8 +24,8 @@ import { $Enums } from '../../generated/prisma/client.js';
 export async function register(request: FastifyRequest, reply: FastifyReply) {
   const bodySchema = z.object({
     email: z.email('E-mail inválido'),
-    name: z.string().min(1, 'Nome é obrigatório'),
-    password: z.string().optional(),
+    name: z.string().min(1, 'Nome é obrigatório').max(NAME_MAX_LENGTH),
+    password: z.string().max(PASSWORD_MAX_LENGTH).optional(),
     role: z.enum($Enums.UserRole),
     companyId: z.string().uuid().nullable().optional(),
     restaurantId: z.string().uuid().nullable().optional(),
@@ -31,7 +46,7 @@ export async function register(request: FastifyRequest, reply: FastifyReply) {
   }
 
   const userService = new UserService();
-  const result = await userService.register(body);
+  const result = await userService.register(body, request.user.sub);
   const fullUser = await userService.getById(result.user.id);
 
   return reply.status(201).send({
@@ -45,7 +60,10 @@ export async function lookupEmployee(
   reply: FastifyReply,
 ) {
   const bodySchema = z.object({
-    cardNumber: z.string().min(1, 'Informe o número do cartão'),
+    cardNumber: z
+      .string()
+      .min(1, 'Informe o número do cartão')
+      .max(CARD_NUMBER_MAX_LENGTH),
     unit: z.enum($Enums.Unit),
   });
 
@@ -64,11 +82,14 @@ export async function registerByCard(
   reply: FastifyReply,
 ) {
   const bodySchema = z.object({
-    cardNumber: z.string().min(1, 'Informe o número do cartão'),
+    cardNumber: z
+      .string()
+      .min(1, 'Informe o número do cartão')
+      .max(CARD_NUMBER_MAX_LENGTH),
     unit: z.enum($Enums.Unit),
     role: z.enum($Enums.UserRole),
     email: z.email('E-mail inválido').nullable().optional(),
-    phone: z.string().nullable().optional(),
+    phone: z.string().max(PHONE_MAX_LENGTH).nullable().optional(),
     companyId: z.string().uuid().nullable().optional(),
     restaurantId: z.string().uuid().nullable().optional(),
     requiresWorkLocation: z.boolean().optional(),
@@ -100,9 +121,12 @@ export async function login(request: FastifyRequest, reply: FastifyReply) {
   const bodySchema = z
     .object({
       email: z.email('E-mail inválido').optional(),
-      cardNumber: z.string().min(1).optional(),
+      cardNumber: z.string().min(1).max(CARD_NUMBER_MAX_LENGTH).optional(),
       unit: z.enum($Enums.Unit).optional(),
-      password: z.string().min(1, 'Senha é obrigatória'),
+      password: z
+        .string()
+        .min(1, 'Senha é obrigatória')
+        .max(PASSWORD_MAX_LENGTH),
     })
     .superRefine((data, ctx) => {
       const hasCard = Boolean(data.cardNumber?.trim() && data.unit);
@@ -118,18 +142,57 @@ export async function login(request: FastifyRequest, reply: FastifyReply) {
 
   const body = bodySchema.parse(request.body);
   const userService = new UserService();
+  const audit = new AuditLogService();
+  const loginMethod = body.cardNumber && body.unit ? 'card' : 'email';
+  const accountKey = loginAccountKey({
+    email: body.email,
+    cardNumber: body.cardNumber,
+    unit: body.unit,
+  });
 
-  const user =
-    body.cardNumber && body.unit
-      ? await userService.loginWithCard(
-          body.cardNumber,
-          body.unit,
-          body.password,
-        )
-      : await userService.loginWithEmail(body.email!, body.password);
+  assertLoginAccountAllowed(accountKey);
 
-  const token = await reply.jwtSign({ sub: user.id });
+  let user: Awaited<ReturnType<UserService['loginWithEmail']>>;
+  try {
+    user =
+      body.cardNumber && body.unit
+        ? await userService.loginWithCard(
+            body.cardNumber,
+            body.unit,
+            body.password,
+          )
+        : await userService.loginWithEmail(body.email!, body.password);
+  } catch (error) {
+    recordLoginAccountFailure(accountKey);
+    await audit.write({
+      userId: null,
+      action: 'USER_LOGIN_FAILURE',
+      entityType: 'User',
+      entityId: 'unknown',
+      metadata: {
+        method: loginMethod,
+        email: body.email?.trim().toLowerCase() || null,
+        unit: body.unit ?? null,
+      },
+    });
+    throw error;
+  }
+
+  clearLoginAccountFailures(accountKey);
+
+  const token = await reply.jwtSign({
+    sub: user.id,
+    tv: user.tokenVersion,
+  });
   const fullUser = await userService.getMe(user.id);
+
+  await audit.write({
+    userId: user.id,
+    action: 'USER_LOGIN_SUCCESS',
+    entityType: 'User',
+    entityId: user.id,
+    metadata: { method: loginMethod },
+  });
 
   return reply.status(200).send({ user: fullUser, token });
 }
@@ -145,7 +208,10 @@ export async function updateMyAvatar(
   reply: FastifyReply,
 ) {
   const bodySchema = z.object({
-    avatar: z.string().min(1, 'Envie sua foto'),
+    avatar: z
+      .string()
+      .min(1, 'Envie sua foto')
+      .max(AVATAR_DATA_URL_MAX_LENGTH),
   });
   const body = bodySchema.parse(request.body);
   const userService = new UserService();
@@ -158,12 +224,20 @@ export async function changePassword(
   reply: FastifyReply,
 ) {
   const bodySchema = z.object({
-    newPassword: z.string().min(8, 'Senha deve ter no mínimo 8 caracteres'),
+    newPassword: z
+      .string()
+      .min(8, 'Senha deve ter no mínimo 8 caracteres')
+      .max(PASSWORD_MAX_LENGTH),
   });
   const { newPassword } = bodySchema.parse(request.body);
   const userService = new UserService();
   const user = await userService.changePassword(request.user.sub, newPassword);
-  return reply.status(200).send({ user });
+  const principal = await userService.resolveSessionPrincipal(request.user.sub);
+  const token = await reply.jwtSign({
+    sub: principal.id,
+    tv: principal.tokenVersion,
+  });
+  return reply.status(200).send({ user, token });
 }
 
 export async function listUsers(request: FastifyRequest, reply: FastifyReply) {
@@ -193,8 +267,8 @@ export async function updateUserByAdmin(
     userId: z.string().uuid('ID de usuário inválido'),
   });
   const bodySchema = z.object({
-    name: z.string().min(1).optional(),
-    phone: z.string().nullable().optional(),
+    name: z.string().min(1).max(NAME_MAX_LENGTH).optional(),
+    phone: z.string().max(PHONE_MAX_LENGTH).nullable().optional(),
     role: z.enum($Enums.UserRole).optional(),
     active: z.boolean().optional(),
     requiresWorkLocation: z.boolean().optional(),
@@ -240,6 +314,8 @@ export async function updateUserByAdmin(
 
   const user = await userService.updateByAdmin(userId, body, {
     allowRoleChange: true,
+    actingAdminId: request.user.sub,
+    actingAdminRole: actorRole,
   });
   return reply.status(200).send({ user });
 }
@@ -346,7 +422,7 @@ export async function previewPasswordReset(
   reply: FastifyReply,
 ) {
   const querySchema = z.object({
-    token: z.string().min(1, 'Link inválido'),
+    token: z.string().min(1, 'Link inválido').max(RESET_TOKEN_MAX_LENGTH),
   });
   const { token } = querySchema.parse(request.query);
   const passwordResetService = new PasswordResetService();
@@ -359,8 +435,11 @@ export async function resetPasswordWithCode(
   reply: FastifyReply,
 ) {
   const bodySchema = z.object({
-    token: z.string().min(1, 'Link inválido'),
-    newPassword: z.string().min(8, 'Senha deve ter no mínimo 8 caracteres'),
+    token: z.string().min(1, 'Link inválido').max(RESET_TOKEN_MAX_LENGTH),
+    newPassword: z
+      .string()
+      .min(8, 'Senha deve ter no mínimo 8 caracteres')
+      .max(PASSWORD_MAX_LENGTH),
   });
   const body = bodySchema.parse(request.body);
   const passwordResetService = new PasswordResetService();

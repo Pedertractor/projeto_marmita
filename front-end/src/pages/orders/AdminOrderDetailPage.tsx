@@ -26,6 +26,7 @@ import {
 import { useAuth } from '@/contexts/useAuth';
 import {
   ordersListPath,
+  safeInternalPath,
   type OrdersListLocationState,
 } from '@/pages/orders/orders-list-url';
 import { menusApi } from '@/services/menus';
@@ -100,9 +101,10 @@ export function AdminOrderDetailPage() {
   const showPricing = user?.role != null && canViewOrderPricing(user.role);
   const next = nextStatusOptions(order.status);
 
-  const ordersListReturnTo =
-    (location.state as OrdersListLocationState | null)?.ordersListReturnTo ??
-    ordersListPath();
+  const ordersListReturnTo = safeInternalPath(
+    (location.state as OrdersListLocationState | null)?.ordersListReturnTo,
+    ordersListPath(),
+  );
 
   const orderTime = order.createdAt
     ? new Date(order.createdAt).toLocaleTimeString('pt-BR', {

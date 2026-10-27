@@ -8,8 +8,10 @@ import {
   createPasswordResetToken,
   hashPasswordResetToken,
 } from '../lib/password-reset.js';
+import { BCRYPT_COST } from '../lib/security-constants.js';
 import { prisma } from '../lib/prisma.js';
 import { UserPrismaRepository } from '../repositories/prisma/user-repository.js';
+import { AuditLogService } from './audit-log-service.js';
 import { sendPasswordResetLink } from './mail-service.js';
 import { env } from '../env/index.js';
 
@@ -80,6 +82,14 @@ export class PasswordResetService {
       );
     }
 
+    const audit = new AuditLogService();
+    await audit.write({
+      userId: user.id,
+      action: 'USER_PASSWORD_RESET_REQUESTED',
+      entityType: 'User',
+      entityId: user.id,
+    });
+
     return {
       message: GENERIC_OK_MESSAGE,
       retryAfterSeconds: Math.ceil(PASSWORD_RESET_COOLDOWN_MS / 1000),
@@ -121,8 +131,16 @@ export class PasswordResetService {
 
   async reset(input: { token: string; newPassword: string }) {
     const user = await this.resolveValidToken(input.token);
-    const passwordHash = await bcrypt.hash(input.newPassword, 10);
+    const passwordHash = await bcrypt.hash(input.newPassword, BCRYPT_COST);
     const userRepository = new UserPrismaRepository(prisma);
     await userRepository.completePasswordReset(user.id, passwordHash);
+
+    const audit = new AuditLogService();
+    await audit.write({
+      userId: user.id,
+      action: 'USER_PASSWORD_RESET_COMPLETED',
+      entityType: 'User',
+      entityId: user.id,
+    });
   }
 }

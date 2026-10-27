@@ -10,6 +10,25 @@ const envSchema = z.object({
   PORT: z.string().default('3404'),
   JWT_SECRET: z.string().min(32, 'JWT_SECRET deve ter no mínimo 32 caracteres'),
   JWT_EXPIRES_IN: z.string().default('12h'),
+  /**
+   * Proxies confiáveis para X-Forwarded-For (rate limit / IP real).
+   * - "false" / "0": não confia em proxy (padrão seguro)
+   * - "true" / "1": confia no primeiro proxy (só atrás de reverse proxy conhecido)
+   * - número: quantidade de hops de proxy
+   */
+  TRUST_PROXY: z
+    .string()
+    .optional()
+    .transform((raw): boolean | string => {
+      if (raw === undefined || raw === '') return false;
+      const trimmed = raw.trim().toLowerCase();
+      if (trimmed === 'true' || trimmed === '1') return true;
+      if (trimmed === 'false' || trimmed === '0') return false;
+      const hops = Number(trimmed);
+      // Fastify aceita hops como string numérica (ex.: "1")
+      if (Number.isInteger(hops) && hops >= 0) return String(hops);
+      return false;
+    }),
   CORS_ORIGINS: z.string().optional(),
   APPNAME: z.string().default(''),
   APPKEY: z.string().default(''),

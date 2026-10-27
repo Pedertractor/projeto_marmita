@@ -1,18 +1,27 @@
 import z from 'zod';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { $Enums } from '../../generated/prisma/client.js';
+import {
+  NAME_MAX_LENGTH,
+  NOTES_MAX_LENGTH,
+  WORK_LOCATION_MAX_LENGTH,
+} from '../../lib/validation-limits.js';
 import { OrderService } from '../../services/order-service.js';
 
 const mealSchema = z.object({
-  recipientName: z.string(),
-  workLocation: z.string().nullable().optional(),
-  notes: z.string().nullable().optional(),
-  itemIds: z.array(z.string().uuid()),
+  recipientName: z.string().max(NAME_MAX_LENGTH),
+  workLocation: z
+    .string()
+    .max(WORK_LOCATION_MAX_LENGTH)
+    .nullable()
+    .optional(),
+  notes: z.string().max(NOTES_MAX_LENGTH).nullable().optional(),
+  itemIds: z.array(z.string().uuid()).max(50),
 });
 
 const mealSchemaStrict = mealSchema.extend({
-  recipientName: z.string().min(1),
-  itemIds: z.array(z.string().uuid()).min(1),
+  recipientName: z.string().min(1).max(NAME_MAX_LENGTH),
+  itemIds: z.array(z.string().uuid()).min(1).max(50),
 });
 
 const fulfillmentSchema = z.enum($Enums.OrderFulfillmentType);

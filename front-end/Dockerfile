@@ -2,18 +2,18 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Instala dependências
 COPY package*.json ./
 
-RUN npm set strict-ssl false
-ENV NODE_TLS_REJECT_UNAUTHORIZED=0
+# Para proxy corporativo com MITM TLS: --build-arg ALLOW_INSECURE_TLS=1
+ARG ALLOW_INSECURE_TLS=0
+RUN if [ "$ALLOW_INSECURE_TLS" = "1" ]; then \
+      npm set strict-ssl false && \
+      export NODE_TLS_REJECT_UNAUTHORIZED=0; \
+    fi && \
+    npm install
 
-RUN npm install
-
-# Copia o projeto
 COPY . .
 
-# Build da aplicação
 RUN npm run build
 
 # --- Serve with NGINX ---
@@ -21,7 +21,6 @@ FROM nginx:alpine
 
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# copia sua configuração customizada
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80

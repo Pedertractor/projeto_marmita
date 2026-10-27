@@ -14,6 +14,7 @@ import {
 import { $Enums } from '../../generated/prisma/client.js';
 import { authMiddleware } from '../../middlewares/auth-middleware.js';
 import { roleMiddleware } from '../../middlewares/auth-role-middleware.js';
+import { expensiveReportRateLimit } from '../rate-limits.js';
 
 const orderStatusEnum = ['DRAFT', 'SUBMITTED', 'ACCEPTED', 'READY'] as const;
 
@@ -99,6 +100,7 @@ export async function orderRoutes(app: FastifyInstance) {
   app.post(
     '/batch/simulate-pdf',
     {
+      config: { rateLimit: expensiveReportRateLimit },
       preHandler: [
         authMiddleware,
         roleMiddleware([$Enums.UserRole.RESTAURANT]),

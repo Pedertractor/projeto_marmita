@@ -16,6 +16,7 @@ const userSafeSelect = {
   active: true,
   mustChangePassword: true,
   requiresWorkLocation: true,
+  tokenVersion: true,
   avatarPath: true,
   emailChallengeDueAt: true,
   companyId: true,
@@ -150,11 +151,17 @@ export class UserPrismaRepository {
       companyId?: string | null;
       restaurantId?: string | null;
       avatarPath?: string | null;
+      /** Quando true, incrementa tokenVersion (invalida JWTs existentes). */
+      bumpTokenVersion?: boolean;
     },
   ): Promise<UserWithoutPassword> {
+    const { bumpTokenVersion, ...fields } = data;
     return this.prisma.user.update({
       where: { id: userId },
-      data,
+      data: {
+        ...fields,
+        ...(bumpTokenVersion ? { tokenVersion: { increment: 1 } } : {}),
+      },
       select: userSafeSelect,
     });
   }
@@ -165,7 +172,11 @@ export class UserPrismaRepository {
   ): Promise<UserWithoutPassword> {
     return this.prisma.user.update({
       where: { id: userId },
-      data: { passwordHash, mustChangePassword: false },
+      data: {
+        passwordHash,
+        mustChangePassword: false,
+        tokenVersion: { increment: 1 },
+      },
       select: userSafeSelect,
     });
   }
@@ -176,7 +187,11 @@ export class UserPrismaRepository {
   ): Promise<UserWithoutPassword> {
     return this.prisma.user.update({
       where: { id: userId },
-      data: { passwordHash, mustChangePassword: true },
+      data: {
+        passwordHash,
+        mustChangePassword: true,
+        tokenVersion: { increment: 1 },
+      },
       select: userSafeSelect,
     });
   }
@@ -208,6 +223,7 @@ export class UserPrismaRepository {
         emailChallengeCodeHash: true,
         emailChallengeExpiresAt: true,
         emailChallengeSentAt: true,
+        emailChallengeAttempts: true,
       },
     });
   }
@@ -222,7 +238,10 @@ export class UserPrismaRepository {
   ) {
     await this.prisma.user.update({
       where: { id: userId },
-      data,
+      data: {
+        ...data,
+        emailChallengeAttempts: 0,
+      },
     });
   }
 
@@ -233,8 +252,18 @@ export class UserPrismaRepository {
         emailChallengeCodeHash: null,
         emailChallengeExpiresAt: null,
         emailChallengeSentAt: null,
+        emailChallengeAttempts: 0,
       },
     });
+  }
+
+  async incrementEmailChallengeAttempts(userId: string): Promise<number> {
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { emailChallengeAttempts: { increment: 1 } },
+      select: { emailChallengeAttempts: true },
+    });
+    return updated.emailChallengeAttempts;
   }
 
   async completeEmailChallenge(userId: string, emailChallengeDueAt: Date) {
@@ -246,6 +275,7 @@ export class UserPrismaRepository {
         emailChallengeCodeHash: null,
         emailChallengeExpiresAt: null,
         emailChallengeSentAt: null,
+        emailChallengeAttempts: 0,
       },
     });
   }
@@ -267,6 +297,7 @@ export class UserPrismaRepository {
         emailChallengeCodeHash: null,
         emailChallengeExpiresAt: null,
         emailChallengeSentAt: null,
+        emailChallengeAttempts: 0,
       },
       select: userSafeSelect,
     });
@@ -348,6 +379,7 @@ export class UserPrismaRepository {
       data: {
         passwordHash,
         mustChangePassword: false,
+        tokenVersion: { increment: 1 },
         passwordResetCodeHash: null,
         passwordResetExpiresAt: null,
         passwordResetSentAt: null,

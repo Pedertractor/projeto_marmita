@@ -38,7 +38,7 @@ export async function upsertMenu(
     items: z
       .array(
         z.object({
-          name: z.string().min(1),
+          name: z.string().min(1).max(120),
           description: z.string().max(500).optional().nullable(),
           iconKey: z.enum(MENU_ITEM_ICON_KEYS).optional(),
           available: z.boolean().optional(),

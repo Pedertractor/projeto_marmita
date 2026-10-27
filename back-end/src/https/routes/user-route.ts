@@ -25,6 +25,8 @@ import { env } from '../../env/index.js';
 import { authMiddleware } from '../../middlewares/auth-middleware.js';
 import { roleMiddleware } from '../../middlewares/auth-role-middleware.js';
 import {
+  avatarUploadRateLimit,
+  externalLookupRateLimit,
   loginRateLimit,
   sensitivePublicRateLimit,
 } from '../rate-limits.js';
@@ -169,6 +171,7 @@ export async function userRoutes(app: FastifyInstance) {
   app.post(
     '/lookup-employee',
     {
+      config: { rateLimit: externalLookupRateLimit },
       preHandler: [
         authMiddleware,
         roleMiddleware([
@@ -196,6 +199,7 @@ export async function userRoutes(app: FastifyInstance) {
   app.post(
     '/register-by-card',
     {
+      config: { rateLimit: externalLookupRateLimit },
       preHandler: [
         authMiddleware,
         roleMiddleware([
@@ -242,6 +246,7 @@ export async function userRoutes(app: FastifyInstance) {
   app.put(
     '/me/avatar',
     {
+      config: { rateLimit: avatarUploadRateLimit },
       preHandler: [authMiddleware],
       schema: {
         tags: ['users'],

@@ -18,6 +18,15 @@ export function apiErrorHandler(
       error.statusCode === 500
         ? INTERNAL_SERVER_ERROR_MESSAGE
         : error.message;
+    const retryAfter = (error as HttpError & { retryAfterSeconds?: number })
+      .retryAfterSeconds;
+    if (
+      error.statusCode === 429 &&
+      typeof retryAfter === 'number' &&
+      retryAfter > 0
+    ) {
+      reply.header('Retry-After', String(retryAfter));
+    }
     return sendError(reply, error.statusCode, message);
   }
 

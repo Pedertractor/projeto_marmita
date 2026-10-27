@@ -32,6 +32,7 @@ import {
   loginEmailSchema,
 } from '@/schemas/login';
 import { userApi } from '@/services/user';
+import { setStoredToken } from '@/utils/auth-storage';
 
 const loginFieldMotion = {
   initial: { opacity: 0, y: 8 },
@@ -140,9 +141,9 @@ export function LoginForm({
 
     setLoading(true);
     try {
-      const { user: updatedUser } = await userApi.changePasswordFirstLogin(
-        result.data.newPassword,
-      );
+      const { user: updatedUser, token } =
+        await userApi.changePasswordFirstLogin(result.data.newPassword);
+      setStoredToken(token);
       updateUser(updatedUser);
       toast.success('Senha alterada com sucesso.');
       navigate(homeForRole(updatedUser.role), { replace: true });
